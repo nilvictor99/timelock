@@ -59,7 +59,15 @@ export default function QrLogin() {
         setScanning(false);
     }
 
-    React.useEffect(() => () => void stopScanner(), []);
+    React.useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const tokenParam = params.get('qr');
+        if (tokenParam) {
+            setToken(tokenParam);
+            void complete(tokenParam).then(() => setError(null));
+        }
+        return () => void stopScanner();
+    }, []);
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-background p-4">

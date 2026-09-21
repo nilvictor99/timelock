@@ -1,6 +1,6 @@
 export type Theme = 'LIGHT' | 'DARK' | 'SYSTEM';
 export type Language = 'es' | 'en';
-export type OperationMode = 'FREE' | 'STRICT';
+export type OperationMode = 'SYNCHRONOUS' | 'FREE';
 
 export type User = {
     id: string;
@@ -13,6 +13,7 @@ export type User = {
     theme: Theme;
     points: number;
     currentStreak?: number | null;
+    bestStreak?: number | null;
     onboardingCompleted: boolean;
     avatarUrl?: string | null;
     pauseActive?: boolean | null;

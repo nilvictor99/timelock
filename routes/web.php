@@ -32,6 +32,12 @@ Route::post('/auth/qr-login', [AuthController::class, 'qrLogin'])->name('auth.qr
 Route::middleware('auth.session')->group(function () {
     Route::get('/onboarding', fn () => Inertia::render('Onboarding'))->name('onboarding');
     Route::get('/dashboard', fn () => Inertia::render('Dashboard/Index'))->name('dashboard');
+    Route::get('/dashboard/activities', fn () => Inertia::render('Dashboard/Activities'))->name('dashboard.activities');
+    Route::get('/dashboard/suggestions', fn () => Inertia::render('Dashboard/Suggestions'))->name('dashboard.suggestions');
+    Route::get('/dashboard/rewards', fn () => Inertia::render('Dashboard/Rewards'))->name('dashboard.rewards');
+    Route::get('/dashboard/calendar', fn () => Inertia::render('Dashboard/Calendar'))->name('dashboard.calendar');
+    Route::get('/dashboard/streak', fn () => Inertia::render('Dashboard/Streak'))->name('dashboard.streak');
+    Route::get('/dashboard/export', fn () => Inertia::render('Dashboard/Export'))->name('dashboard.export');
     Route::get('/dashboard/profile', fn (Request $request) => Inertia::render('Dashboard/Profile', ['user' => $request->attributes->get('auth_user')]))->name('dashboard.profile');
     Route::get('/dashboard/settings', fn (Request $request) => Inertia::render('Dashboard/Settings', ['user' => $request->attributes->get('auth_user')]))->name('dashboard.settings');
     Route::get('/dashboard/stats', fn () => Inertia::render('Dashboard/Stats'))->name('dashboard.stats');
@@ -41,6 +47,7 @@ Route::middleware('auth.session')->group(function () {
     Route::post('/api/bootstrap', [DashboardController::class, 'store']);
     Route::patch('/api/bootstrap', [DashboardController::class, 'patchActivity']);
     Route::delete('/api/bootstrap', [DashboardController::class, 'destroy']);
+    Route::patch('/api/rewards/{reward}', [DashboardController::class, 'redeemReward']);
 
     Route::get('/api/export', [ExportController::class, 'show'])->name('api.export');
 

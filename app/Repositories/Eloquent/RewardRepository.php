@@ -13,8 +13,18 @@ class RewardRepository implements RewardRepositoryInterface
         return Reward::where('user_id', $userId)->orderBy('cost')->get();
     }
 
+    public function findByIdAndUser(string $id, string $userId): ?Reward
+    {
+        return Reward::whereKey($id)->where('user_id', $userId)->first();
+    }
+
     public function create(array $data): Reward
     {
         return Reward::create($data);
+    }
+
+    public function markRedeemed(string $id, string $userId): bool
+    {
+        return (bool) Reward::whereKey($id)->where('user_id', $userId)->update(['redeemed_at' => now()]);
     }
 }

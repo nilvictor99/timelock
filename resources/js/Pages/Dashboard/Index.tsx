@@ -1,31 +1,33 @@
 import * as React from 'react';
-import { router } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
+import { ChevronRight, Clock3, Flame, Play, Plus, Target, Trophy } from 'lucide-react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Badge } from '@/Components/ui/Badge';
 import { Button } from '@/Components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/Card';
-import { Input } from '@/Components/ui/Input';
+import { ActivityForm } from '@/Components/dashboard/ActivityForm';
+import { ActivityRow } from '@/Components/dashboard/ActivityRow';
+import { Empty } from '@/Components/dashboard/Empty';
+import { FloatingTimer } from '@/Components/dashboard/FloatingTimer';
+import { Metric } from '@/Components/dashboard/Metric';
+import { PauseBanner } from '@/Components/dashboard/PauseBanner';
+import { Toast } from '@/Components/dashboard/Toast';
 import { useI18n } from '@/lib/i18n';
-import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api';
-import { formatTime } from '@/lib/utils';
-import type { Bootstrap } from '@/types';
+import { apiGet, apiPatch } from '@/lib/api';
+import { formatTime, minutesBetween, toDateKey } from '@/lib/utils';
+import type { Activity, Bootstrap } from '@/types';
 
 export default function Index() {
     const { t } = useI18n();
     const [data, setData] = React.useState<Bootstrap | null>(null);
     const [error, setError] = React.useState<string | null>(null);
+    const [activeTimer, setActiveTimer] = React.useState<Activity | null>(null);
+    const [timerPaused, setTimerPaused] = React.useState(false);
+    const [now, setNow] = React.useState(new Date());
+    const [showForm, setShowForm] = React.useState(false);
+    const [toast, setToast] = React.useState('');
 
-    const [title, setTitle] = React.useState('');
-    const [categoryId, setCategoryId] = React.useState('');
-    const [startAt, setStartAt] = React.useState(
-        new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
-    );
-    const [endAt, setEndAt] = React.useState(
-        new Date(Date.now() - new Date().getTimezoneOffset() * 60000 + 3600000).toISOString().slice(0, 16),
-    );
-    const [rewardTitle, setRewardTitle] = React.useState('');
-    const [rewardCost, setRewardCost] = React.useState('');
-    const [saving, setSaving] = React.useState(false);
+    const notify = (message: string) => setToast(message);
 
     const load = React.useCallback(() => {
         apiGet<Bootstrap>('/api/bootstrap')
@@ -34,244 +36,205 @@ export default function Index() {
     }, []);
 
     React.useEffect(load, [load]);
-
-    async function createActivity(event: React.FormEvent) {
-        event.preventDefault();
-        setSaving(true);
-        setError(null);
-        try {
-            await apiPost('/api/bootstrap', {
-                action: 'activity',
-                title,
-                categoryId,
-                startAt: new Date(startAt).toISOString(),
-                endAt: new Date(endAt).toISOString(),
-            });
-            setTitle('');
-            load();
-        } catch (cause) {
-            setError(cause instanceof Error ? cause.message : String(cause));
-        } finally {
-            setSaving(false);
-        }
-    }
-
-    async function createReward(event: React.FormEvent) {
-        event.preventDefault();
-        setSaving(true);
-        setError(null);
-        try {
-            await apiPost('/api/bootstrap', {
-                action: 'reward',
-                title: rewardTitle,
-                cost: rewardCost,
-            });
-            setRewardTitle('');
-            setRewardCost('');
-            load();
-        } catch (cause) {
-            setError(cause instanceof Error ? cause.message : String(cause));
-        } finally {
-            setSaving(false);
-        }
-    }
+    React.useEffect(() => {
+        const id = window.setInterval(() => setNow(new Date()), 1000);
+        return () => window.clearInterval(id);
+    }, []);
+    React.useEffect(() => {
+        if (!toast) return;
+        const id = window.setTimeout(() => setToast(''), 3000);
+        return () => window.clearTimeout(id);
+    }, [toast]);
 
     if (!data) {
         return (
             <DashboardLayout>
-                <p className="text-muted-foreground">{t('dashboard.loading')}</p>
+                <p className="text-sm text-muted-foreground">{error ?? t('dashboard.loading')}</p>
             </DashboardLayout>
         );
     }
 
-    const { user, activities, categories, rewards, today } = data;
+    const { user, activities, categories, today } = data;
     const todayActivities = activities
-        .filter((activity) => activity.date === today)
+        .filter((a) => toDateKey(new Date(a.startAt)) === today && !user.pauseActive)
         .sort((a, b) => a.startAt.localeCompare(b.startAt));
+    if (user.pauseActive) todayActivities.length = 0;
+
+    const completed = todayActivities.filter((a) => a.status === 'COMPLETED').length;
+    const totalMinutes = todayActivities.reduce((sum, a) => sum + minutesBetween(a.startAt, a.endAt), 0);
+    const completedMinutes = todayActivities
+        .filter((a) => a.status === 'COMPLETED')
+        .reduce((sum, a) => sum + minutesBetween(a.startAt, a.endAt), 0);
+    const progress = todayActivities.length ? Math.round((completed / todayActivities.length) * 100) : 0;
+    const current =
+        user.operationMode === 'FREE'
+            ? activities.find((a) => a.status === 'PLANNED')
+            : activities.find(
+                  (a) => new Date(a.startAt) <= now && new Date(a.endAt) > now && a.status === 'PLANNED',
+              );
+    const timerSeconds =
+        activeTimer && !timerPaused
+            ? user.operationMode === 'FREE'
+                ? Math.max(0, Math.floor((now.getTime() - new Date(activeTimer.startAt).getTime()) / 1000))
+                : Math.max(0, Math.floor((new Date(activeTimer.endAt).getTime() - now.getTime()) / 1000))
+            : 0;
+
+    async function markDone(activity: Activity) {
+        await apiPatch('/api/bootstrap', { id: activity.id, status: 'COMPLETED' });
+        notify(t('toastDone').replace('{pts}', String(activity.points)));
+        load();
+    }
+
+    const firstName = user.name?.split(' ')[0] ?? user.name;
 
     return (
         <DashboardLayout>
-            <div className="space-y-4">
-                {user.pauseActive && (
-                    <div className="rounded-xl border border-warning bg-orange-50 p-3 text-sm dark:bg-orange-950/90">
-                        {t('dashboard.pauseActive')}: {user.pauseReason ?? ''}{' '}
-                        {user.pauseEndsAt ? `· ${t('dashboard.resumes')} ${formatTime(user.pauseEndsAt)}` : ''}
+            <div className="space-y-6">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                        <p className="mb-2 text-sm text-muted-foreground">
+                            {user.operationMode === 'FREE' ? t('homeSubtitleFree') : t('homeSubtitleSync')}
+                        </p>
+                        <h2 className="text-3xl font-bold tracking-tight">
+                            {t('homeGreeting').replace('{name}', firstName ?? '')}
+                        </h2>
                     </div>
-                )}
-
-                <section className="grid gap-3 sm:grid-cols-3">
-                    <Card>
-                        <CardContent className="pt-5">
-                            <p className="text-sm text-muted-foreground">{t('dashboard.points')}</p>
-                            <p className="text-2xl font-semibold">{user.points}</p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardContent className="pt-5">
-                            <p className="text-sm text-muted-foreground">{t('dashboard.streak')}</p>
-                            <p className="text-2xl font-semibold">{user.currentStreak ?? 0}</p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardContent className="pt-5">
-                            <p className="text-sm text-muted-foreground">{t('dashboard.activitiesToday')}</p>
-                            <p className="text-2xl font-semibold">
-                                {todayActivities.filter((a) => a.status === 'COMPLETED').length}/{todayActivities.length}
-                            </p>
-                        </CardContent>
-                    </Card>
-                </section>
-
-                {error && <p className="rounded-lg bg-danger/10 p-3 text-sm text-danger">{error}</p>}
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>{t('dashboard.addActivity')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={createActivity} className="space-y-3">
-                            <Input
-                                placeholder={t('dashboard.activityTitle')}
-                                value={title}
-                                onChange={(event) => setTitle(event.target.value)}
-                                required
-                            />
-                            <select
-                                value={categoryId}
-                                onChange={(event) => setCategoryId(event.target.value)}
-                                required
-                                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                            >
-                                <option value="">{t('dashboard.selectCategory')}</option>
-                                {categories.map((category) => (
-                                    <option key={category.id} value={category.id}>
-                                        {category.name} · {category.pointsPerHour} {t('dashboard.pph')}
-                                    </option>
-                                ))}
-                            </select>
-                            <div className="grid grid-cols-2 gap-3">
-                                <Input
-                                    type="datetime-local"
-                                    value={startAt}
-                                    onChange={(event) => setStartAt(event.target.value)}
-                                    required
-                                />
-                                <Input
-                                    type="datetime-local"
-                                    value={endAt}
-                                    onChange={(event) => setEndAt(event.target.value)}
-                                    required
-                                />
-                            </div>
-                            <Button type="submit" disabled={saving}>
-                                {t('dashboard.save')}
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>
-                            {t('dashboard.today')} · {today}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                        {todayActivities.length === 0 && (
-                            <p className="text-sm text-muted-foreground">{t('dashboard.noActivities')}</p>
-                        )}
-                        {todayActivities.map((activity) => (
-                            <div
-                                key={activity.id}
-                                className="flex items-center gap-3 rounded-lg border border-border p-3"
-                            >
-                                <div className="min-w-0 flex-1">
-                                    <p className="truncate font-medium">
-                                        {activity.status === 'COMPLETED' ? (
-                                            <span className="line-through opacity-60">{activity.title}</span>
-                                        ) : (
-                                            activity.title
-                                        )}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {formatTime(activity.startAt)}–{formatTime(activity.endAt)} ·{' '}
-                                        {activity.category?.name ?? t('dashboard.free')} · +{activity.points} {t('dashboard.pts')}
-                                    </p>
-                                </div>
-                                {activity.status !== 'COMPLETED' ? (
-                                    <Button
-                                        size="sm"
-                                        onClick={() =>
-                                            apiPatch('/api/bootstrap', {
-                                                id: activity.id,
-                                                status: 'COMPLETED',
-                                            }).then(load)
-                                        }
-                                    >
-                                        {t('dashboard.complete')}
-                                    </Button>
-                                ) : (
-                                    <Badge variant="success">{t('dashboard.completed')}</Badge>
-                                )}
-                                <Button
-                                    size="sm"
-                                    variant="danger"
-                                    onClick={() =>
-                                        apiDelete('/api/bootstrap?id=' + activity.id).then(load)
-                                    }
-                                >
-                                    {t('dashboard.delete')}
-                                </Button>
-                            </div>
-                        ))}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>{t('dashboard.rewards')}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                        <form onSubmit={createReward} className="flex gap-3">
-                            <Input
-                                placeholder={t('dashboard.rewardTitle')}
-                                value={rewardTitle}
-                                onChange={(event) => setRewardTitle(event.target.value)}
-                                required
-                            />
-                            <Input
-                                type="number"
-                                min={1}
-                                placeholder={t('dashboard.rewardCost')}
-                                value={rewardCost}
-                                onChange={(event) => setRewardCost(event.target.value)}
-                                required
-                                className="w-28"
-                            />
-                            <Button type="submit" disabled={saving}>
-                                {t('dashboard.save')}
-                            </Button>
-                        </form>
-                        {rewards.map((reward) => (
-                            <div
-                                key={reward.id}
-                                className="flex items-center justify-between rounded-lg border border-border p-3 text-sm"
-                            >
-                                <span>{reward.title}</span>
-                                <Badge>
-                                    {reward.cost} {t('dashboard.pts')}
-                                </Badge>
-                            </div>
-                        ))}
-                    </CardContent>
-                </Card>
-
-                <div className="flex justify-end">
-                    <Button variant="ghost" size="sm" onClick={() => router.reload()}>
-                        {t('dashboard.refresh')}
+                    <Button onClick={() => setShowForm(true)}>
+                        <Plus size={17} /> {t('dashboard.addActivity')}
                     </Button>
                 </div>
+
+                <div className="grid gap-4 md:grid-cols-4">
+                    <Metric
+                        title={t('homeProgress')}
+                        value={`${progress}%`}
+                        detail={t('homeProgressDetail')
+                            .replace('{done}', String(completed))
+                            .replace('{total}', String(todayActivities.length))}
+                        icon={<Target className="text-success" />}
+                    />
+                    <Metric
+                        title={t('homeFocusTime')}
+                        value={`${Math.floor(completedMinutes / 60)}h ${completedMinutes % 60}m`}
+                        detail={t('homeFocusTimePlanned')
+                            .replace('{hours}', String(Math.floor(totalMinutes / 60)))
+                            .replace('{minutes}', String(totalMinutes % 60))}
+                        icon={<Clock3 className="text-info" />}
+                    />
+                    <Metric
+                        title={t('dashboard.streak')}
+                        value={`${user.currentStreak ?? 0} días`}
+                        detail={t('homeStreakBest').replace('{best}', String(user.bestStreak ?? 0))}
+                        icon={<Flame className="text-warning" />}
+                    />
+                    <Metric
+                        title={t('dashboard.points')}
+                        value={`${user.points}`}
+                        detail={t('homePointsDetail')}
+                        icon={<Trophy className="text-warning" />}
+                    />
+                </div>
+
+                {error && (
+                    <p className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">{error}</p>
+                )}
+
+                <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+                    <Card>
+                        <CardHeader className="flex-row items-center justify-between">
+                            <CardTitle>{t('homeAgenda')}</CardTitle>
+                            <Link href="/dashboard/activities">
+                                <Button variant="ghost" size="sm">
+                                    {t('homeViewAll')} <ChevronRight size={15} />
+                                </Button>
+                            </Link>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {todayActivities.length === 0 ? (
+                                <Empty text={t('dashboard.noActivities')} />
+                            ) : (
+                                todayActivities.slice(0, 5).map((activity) => (
+                                    <ActivityRow
+                                        key={activity.id}
+                                        activity={activity}
+                                        now={now}
+                                        onDone={() => markDone(activity)}
+                                        onTimer={() => setActiveTimer(activity)}
+                                    />
+                                ))
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>{t('homeFocusCard')}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {current ? (
+                                <div className="space-y-5">
+                                    <div className="rounded-lg bg-muted p-5">
+                                        <div className="mb-2 flex items-center justify-between">
+                                            <Badge variant="success">{t('homeInProgress')}</Badge>
+                                            <span className="text-sm text-muted-foreground">
+                                                {formatTime(current.startAt)} – {formatTime(current.endAt)}
+                                            </span>
+                                        </div>
+                                        <h3 className="text-xl font-semibold">{current.title}</h3>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            {current.category?.name ?? t('rowWithoutCategory')}
+                                        </p>
+                                    </div>
+                                    <Button className="w-full" onClick={() => setActiveTimer(current)}>
+                                        <Play size={16} /> {t('homeOpenTimer')}
+                                    </Button>
+                                </div>
+                            ) : (
+                                <Empty text={t('homeNoActive')} />
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
+
+            {showForm && (
+                <ActivityForm
+                    categories={categories}
+                    defaultDate={today}
+                    mode={user.operationMode}
+                    onClose={() => setShowForm(false)}
+                    onCreated={() => {
+                        setShowForm(false);
+                        load();
+                        notify(t('toastScheduled'));
+                    }}
+                />
+            )}
+            {user.pauseActive && <PauseBanner reason={user.pauseReason} />}
+            {activeTimer && (
+                <FloatingTimer
+                    activity={activeTimer}
+                    seconds={timerSeconds}
+                    paused={timerPaused}
+                    onPause={() => setTimerPaused((value) => !value)}
+                    onFinalize={() => {
+                        void markDone(activeTimer);
+                        setActiveTimer(null);
+                        setTimerPaused(false);
+                    }}
+                    onSnooze={() => {
+                        setActiveTimer(null);
+                        setTimerPaused(false);
+                        notify(t('timerSnoozed'));
+                    }}
+                    onCancel={() => {
+                        setActiveTimer(null);
+                        setTimerPaused(false);
+                        notify(t('toastTimerCancel'));
+                    }}
+                />
+            )}
+            {toast && <Toast message={toast} />}
         </DashboardLayout>
     );
 }

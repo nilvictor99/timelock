@@ -40,6 +40,19 @@ export function apiPost<T>(url: string, body: unknown) {
     });
 }
 
+export function apiForm<T>(url: string, form: FormData) {
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    const xsrf = readXsrfToken();
+    if (xsrf) {
+        headers['X-XSRF-TOKEN'] = xsrf;
+    }
+    return request<T>(url, {
+        method: 'POST',
+        headers,
+        body: form,
+    });
+}
+
 export function apiPatch<T>(url: string, body: unknown) {
     return request<T>(url, {
         method: 'PATCH',

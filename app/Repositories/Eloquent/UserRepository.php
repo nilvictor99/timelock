@@ -65,6 +65,11 @@ class UserRepository implements UserRepositoryInterface
         return (bool) User::whereKey($userId)->increment('points', $points);
     }
 
+    public function decrementPoints(string $userId, int $points): bool
+    {
+        return (bool) User::whereKey($userId)->decrement('points', $points);
+    }
+
     public function touchLastAccess(string $userId): bool
     {
         return (bool) User::whereKey($userId)->update(['last_access_at' => now()]);

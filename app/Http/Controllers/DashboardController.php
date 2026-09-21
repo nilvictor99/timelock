@@ -16,6 +16,7 @@ use App\Support\ProfileUpdateMapper;
 use DateTimeImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -108,6 +109,37 @@ class DashboardController extends Controller
         } catch (\Throwable) {
             return response()->json(['error' => 'No se pudo actualizar la actividad.'], 500);
         }
+    }
+
+    public function redeemReward(Request $request): JsonResponse
+    {
+        $user = $request->attributes->get('auth_user');
+        $rewardId = (string) $request->route('reward');
+        $reward = $this->rewards->findByIdAndUser($rewardId, $user->id);
+
+        if (! $reward) {
+            return response()->json(['error' => 'La recompensa ya no existe.'], 404);
+        }
+
+        if ($reward->redeemed_at !== null) {
+            return response()->json(['error' => 'Esta recompensa ya fue canjeada.'], 400);
+        }
+
+        if ($user->points < $reward->cost) {
+            return response()->json(['error' => 'No tienes puntos suficientes.'], 422);
+        }
+
+        $redeemed = DB::transaction(function () use ($reward, $user): bool {
+            $this->users->decrementPoints($user->id, $reward->cost);
+
+            return $this->rewards->markRedeemed($reward->id, $user->id);
+        });
+
+        if (! $redeemed) {
+            return response()->json(['error' => 'No se pudo canjear la recompensa.'], 500);
+        }
+
+        return response()->json($this->rewardPayload($reward->refresh()));
     }
 
     public function destroy(Request $request): JsonResponse

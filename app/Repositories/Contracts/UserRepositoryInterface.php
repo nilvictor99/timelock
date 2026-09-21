@@ -21,5 +21,7 @@ interface UserRepositoryInterface
 
     public function incrementPoints(string $userId, int $points): bool;
 
+    public function decrementPoints(string $userId, int $points): bool;
+
     public function touchLastAccess(string $userId): bool;
 }
