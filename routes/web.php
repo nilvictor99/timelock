@@ -1,0 +1,55 @@
+<?php
+
+use App\Http\Controllers\AiController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExportController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SuggestionController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+
+Route::name('home')->get('/', fn () => Inertia::render('Landing'));
+
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::get('/auth/qr-login', fn () => Inertia::render('Auth/QrLogin'))->name('auth.qr-login.show');
+});
+
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+Route::middleware('auth.session')->group(function () {
+    Route::get('/auth/me', [AuthController::class, 'me'])->name('auth.me');
+    Route::post('/auth/qr', [AuthController::class, 'qr'])->name('auth.qr');
+});
+
+Route::post('/auth/qr-login', [AuthController::class, 'qrLogin'])->name('auth.qr-login');
+
+Route::middleware('auth.session')->group(function () {
+    Route::get('/onboarding', fn () => Inertia::render('Onboarding'))->name('onboarding');
+    Route::get('/dashboard', fn () => Inertia::render('Dashboard/Index'))->name('dashboard');
+    Route::get('/dashboard/profile', fn (Request $request) => Inertia::render('Dashboard/Profile', ['user' => $request->attributes->get('auth_user')]))->name('dashboard.profile');
+    Route::get('/dashboard/settings', fn (Request $request) => Inertia::render('Dashboard/Settings', ['user' => $request->attributes->get('auth_user')]))->name('dashboard.settings');
+    Route::get('/dashboard/stats', fn () => Inertia::render('Dashboard/Stats'))->name('dashboard.stats');
+    Route::get('/dashboard/qr', fn () => Inertia::render('Dashboard/Qr'))->name('dashboard.qr');
+
+    Route::get('/api/bootstrap', [DashboardController::class, 'bootstrap'])->name('api.bootstrap');
+    Route::post('/api/bootstrap', [DashboardController::class, 'store']);
+    Route::patch('/api/bootstrap', [DashboardController::class, 'patchActivity']);
+    Route::delete('/api/bootstrap', [DashboardController::class, 'destroy']);
+
+    Route::get('/api/export', [ExportController::class, 'show'])->name('api.export');
+
+    Route::post('/api/profile/avatar', [ProfileController::class, 'avatar'])->name('api.profile.avatar');
+    Route::post('/api/profile/email', [ProfileController::class, 'email'])->name('api.profile.email');
+    Route::post('/api/profile/password', [ProfileController::class, 'password'])->name('api.profile.password');
+
+    Route::get('/api/suggestions', [SuggestionController::class, 'index'])->name('api.suggestions');
+    Route::post('/api/suggestions', [SuggestionController::class, 'generate'])->name('api.suggestions.generate');
+
+    Route::post('/api/ai/test-connection', [AiController::class, 'testConnection'])->name('api.ai.test-connection');
+});
