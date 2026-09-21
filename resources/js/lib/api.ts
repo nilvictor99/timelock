@@ -1,8 +1,22 @@
+function readXsrfToken(): string | undefined {
+    const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : undefined;
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
+    const headers: Record<string, string> = {
+        Accept: 'application/json',
+        ...(init?.headers as Record<string, string> | undefined),
+    };
+    const xsrf = readXsrfToken();
+    if (xsrf) {
+        headers['X-XSRF-TOKEN'] = xsrf;
+    }
+
     const response = await fetch(url, {
-        credentials: 'include',
-        headers: { Accept: 'application/json', ...(init?.headers ?? {}) },
         ...init,
+        credentials: 'include',
+        headers,
     });
 
     const data = (await response.json().catch(() => null)) as T | null;

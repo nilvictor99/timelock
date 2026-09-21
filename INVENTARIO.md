@@ -74,7 +74,9 @@ react 18.3, zod, bcryptjs, date-fns, recharts, qrcode, html5-qrcode, jspdf, luci
 - [x] **QR login completo**: `Components/QrCode` (paquete `qrcode`), `/dashboard/qr` (página autenticada con token único auto-renovable cada 60s + consumo de prueba), `/auth/qr-login` (página invitado con escáner `html5-qrcode` + fallback a pegar token) → consume `/auth/qr-login` y redirige a dashboard/onboarding
 - [x] **Stats mejoradas**: gráfico de barras de completadas últimos 14 días (recharts), botones Exportar CSV (`/api/export`) y Exportar PDF (`jspdf`)
 - [x] Deps nuevas: `qrcode`, `html5-qrcode`, `recharts`, `jspdf`, `@types/qrcode`
+- [x] `lib/api.ts`: envía `X-XSRF-TOKEN` (desde cookie) en todas las peticiones — sin esto los POST/PATCH/DELETE de fetch daban 419. `...init` va antes que `headers` para no pisarlos
+- [x] Verificación de humo (curl contra contenedor): Landing/Login/Register/qr-login 200; todas las páginas dashboard 200 con su `component` correcto; `/api/bootstrap` sin `password_hash`; QR **e2e completo** (crear 200, consumir con token nuevo → `{"ok":true,"redirect"}` + `Set-Cookie: timelock_session` 30 días)
 
 ### Pendiente
-- Verificación visual comparada con pantallas Next.js (checklist 21.3) — manual
-- Limpieza final: fijar `pest` `^4.7`/`^4.1` en composer.json, revisar env de AI en `.env.example`, `git init` + commit si el usuario lo pide.
+- Verificación visual manual foto a foto con las pantallas Next.js (checklist 21.3) — opcional, el smoke end-to-end ya cubre el flujo crítico
+- `git init` + primer commit ya hecho (7789544); falta commit de `lib/api.ts` (CSRF)
