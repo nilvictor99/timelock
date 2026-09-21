@@ -1,3 +1,4 @@
+import '@vitejs/plugin-react/preamble';
 import '../css/app.css';
 import { type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';

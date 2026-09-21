@@ -75,6 +75,7 @@ react 18.3, zod, bcryptjs, date-fns, recharts, qrcode, html5-qrcode, jspdf, luci
 - [x] **Stats mejoradas**: gráfico de barras de completadas últimos 14 días (recharts), botones Exportar CSV (`/api/export`) y Exportar PDF (`jspdf`)
 - [x] Deps nuevas: `qrcode`, `html5-qrcode`, `recharts`, `jspdf`, `@types/qrcode`
 - [x] `lib/api.ts`: envía `X-XSRF-TOKEN` (desde cookie) en todas las peticiones — sin esto los POST/PATCH/DELETE de fetch daban 419. `...init` va antes que `headers` para no pisarlos
+- [x] Fix HMR dev "can't detect preamble": `import '@vitejs/plugin-react/preamble'` como primer import de `resources/js/app.tsx` (la solución documentada para apps que no usan `transformIndexHtml`, como Laravel). Sin esto, en `npm run dev` los módulos JSX se cargaban sin el runtime de React Refresh y el browser lanzaba el error. Verificado: el módulo virtual sirve `injectIntoGlobalHook` e `i18n.tsx` ya se envuelve con Refresh; el build de producción no se ve afectado
 - [x] Verificación de humo (curl contra contenedor): Landing/Login/Register/qr-login 200; todas las páginas dashboard 200 con su `component` correcto; `/api/bootstrap` sin `password_hash`; QR **e2e completo** (crear 200, consumir con token nuevo → `{"ok":true,"redirect"}` + `Set-Cookie: timelock_session` 30 días)
 
 ### Pendiente
