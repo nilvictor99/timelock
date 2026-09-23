@@ -1,7 +1,6 @@
 import { Download } from 'lucide-react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Button } from '@/Components/ui/Button';
-import { Card, CardContent } from '@/Components/ui/Card';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { useI18n } from '@/lib/i18n';
 
 const PERIODS: { key: string; labelKey: string }[] = [
@@ -18,7 +17,7 @@ export default function ExportView() {
     };
 
     return (
-        <DashboardLayout>
+        <>
             <div className="max-w-3xl space-y-6">
                 <div>
                     <h2 className="text-2xl font-bold">{t('exportTitle')}</h2>
@@ -57,6 +56,6 @@ export default function ExportView() {
                     </CardContent>
                 </Card>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

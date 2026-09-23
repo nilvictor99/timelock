@@ -1,11 +1,10 @@
 import * as React from 'react';
-import { Link } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Button } from '@/Components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { useI18n } from '@/lib/i18n';
 import { apiGet } from '@/lib/api';
 import { cn, toDateKey } from '@/lib/utils';
+import type { TabId } from '@/lib/navigation';
 import type { Activity, Bootstrap } from '@/types';
 
 const calendarMonthFormatter = new Intl.DateTimeFormat('es', { month: 'long', year: 'numeric' });
@@ -13,7 +12,7 @@ const calendarDayFormatter = new Intl.DateTimeFormat('es', { weekday: 'short', d
 
 type ViewMode = 'day' | 'week' | 'month';
 
-export default function Calendar() {
+export default function Calendar({ onNavigate }: { onNavigate?: (tab: TabId) => void }) {
     const { t } = useI18n();
     const [data, setData] = React.useState<Bootstrap | null>(null);
     const [error, setError] = React.useState<string | null>(null);
@@ -29,11 +28,7 @@ export default function Calendar() {
     React.useEffect(load, [load]);
 
     if (!data) {
-        return (
-            <DashboardLayout>
-                <p className="text-sm text-muted-foreground">{error ?? t('dashboard.loading')}</p>
-            </DashboardLayout>
-        );
+        return <p className="text-sm text-muted-foreground">{error ?? t('dashboard.loading')}</p>;
     }
 
     const { activities } = data;
@@ -57,7 +52,7 @@ export default function Calendar() {
     const title = calendarMonthFormatter.format(anchor);
 
     return (
-        <DashboardLayout>
+        <>
             <div className="space-y-6">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
@@ -74,9 +69,15 @@ export default function Calendar() {
                         <Button variant="outline" size="sm" onClick={() => shift(1)} aria-label="next">
                             <ChevronRight size={15} />
                         </Button>
-                        <Link href="/dashboard/activities">
-                            <Button variant="outline">{t('calendarManage')}</Button>
-                        </Link>
+                        {onNavigate ? (
+                            <Button variant="outline" onClick={() => onNavigate('activities')}>
+                                {t('calendarManage')}
+                            </Button>
+                        ) : (
+                            <a href="/dashboard?tab=activities" className="rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted">
+                                {t('calendarManage')}
+                            </a>
+                        )}
                     </div>
                 </div>
 
@@ -143,6 +144,6 @@ export default function Calendar() {
                     })}
                 </div>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

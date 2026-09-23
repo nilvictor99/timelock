@@ -1,6 +1,6 @@
 import { Check, Play } from 'lucide-react';
-import { Badge } from '@/Components/ui/Badge';
-import { Button } from '@/Components/ui/Button';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useI18n } from '@/lib/i18n';
 import { cn, formatTime } from '@/lib/utils';
 import type { Activity } from '@/types';

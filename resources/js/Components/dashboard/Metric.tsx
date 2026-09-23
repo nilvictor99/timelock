@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Card, CardContent } from '@/Components/ui/Card';
+import { Card, CardContent } from '@/components/ui/card';
 
 export function Metric({
     title,

@@ -27,6 +27,14 @@ export const mobilePrimaryNavigation: NavId[] = ['home', 'activities', 'calendar
 
 export const mobileMoreNavigation: NavId[] = ['suggestions', 'rewards', 'streak', 'settings', 'export'];
 
+export type TabId = 'activities' | 'suggestions' | 'rewards' | 'calendar' | 'streak' | 'export';
+
+export const tabIds: TabId[] = ['activities', 'suggestions', 'rewards', 'calendar', 'streak', 'export'];
+
+export function isTabId(value: string | null | undefined): value is TabId {
+    return value !== null && value !== undefined && (tabIds as string[]).includes(value);
+}
+
 export function navigationPath(id: NavId): string {
     switch (id) {
         case 'home':
@@ -34,20 +42,20 @@ export function navigationPath(id: NavId): string {
         case 'stats':
             return '/dashboard/stats';
         case 'activities':
-            return '/dashboard/activities';
+            return '/dashboard?tab=activities';
         case 'suggestions':
-            return '/dashboard/suggestions';
+            return '/dashboard?tab=suggestions';
         case 'rewards':
-            return '/dashboard/rewards';
+            return '/dashboard?tab=rewards';
         case 'calendar':
-            return '/dashboard/calendar';
+            return '/dashboard?tab=calendar';
         case 'streak':
-            return '/dashboard/streak';
+            return '/dashboard?tab=streak';
         case 'profile':
             return '/dashboard/profile';
         case 'settings':
             return '/dashboard/settings';
         case 'export':
-            return '/dashboard/export';
+            return '/dashboard?tab=export';
     }
 }

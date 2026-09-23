@@ -15,10 +15,12 @@ import {
 } from 'recharts';
 import { CalendarDays, CheckCircle2, Clock3, Download, Flame, Gift, Trophy } from 'lucide-react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Button } from '@/Components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/Card';
-import { Input } from '@/Components/ui/Input';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { cn, minutesBetween, toDateKey } from '@/lib/utils';
+import { dateRangeSchema } from '@/lib/validations';
 import { useI18n } from '@/lib/i18n';
 import { apiGet } from '@/lib/api';
 
@@ -43,10 +45,6 @@ type RangePreset = 'today' | 'week' | 'month' | 'custom';
 
 const colors = ['#2563eb', '#16a34a', '#ea580c', '#9333ea', '#0891b2', '#db2777', '#ca8a04'];
 const weekdayKeys = ['sunShort', 'monShort', 'tueShort', 'wedShort', 'thuShort', 'friShort', 'satShort'] as const;
-
-function isDateString(value: string) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
 
 function endOfDay(date: Date) {
     const result = new Date(date);
@@ -144,12 +142,13 @@ export default function Stats() {
         if (preset === 'today') return { from: new Date(now.setHours(0, 0, 0, 0)), to: endOfDay(new Date()) };
         if (preset === 'week') return { from: startOfWeek(now), to: endOfDay(new Date()) };
         if (preset === 'month') return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: endOfDay(new Date()) };
-        if (!isDateString(customFrom) || !isDateString(customTo)) {
+        const parsed = dateRangeSchema.safeParse({ from: customFrom, to: customTo });
+        if (!parsed.success) {
             const today = new Date();
             return { from: new Date(today.setHours(0, 0, 0, 0)), to: endOfDay(new Date()) };
         }
-        const from = dateFromKey(customFrom);
-        const to = dateFromKey(customTo, true);
+        const from = dateFromKey(parsed.data.from);
+        const to = dateFromKey(parsed.data.to, true);
         return from <= to ? { from, to } : { from: to, to: endOfDay(from) };
     }, [customFrom, customTo, preset]);
 
@@ -337,10 +336,9 @@ export default function Stats() {
                             <div className="mt-2 flex max-h-20 flex-wrap gap-2 overflow-auto">
                                 {visibleActivities.slice(0, 12).map((activity) => (
                                     <label key={activity.id} className="flex items-center gap-1 text-xs">
-                                        <input
-                                            type="checkbox"
+                                        <Checkbox
                                             checked={selectedActivities.includes(activity.id)}
-                                            onChange={() => toggle(activity.id, selectedActivities, setSelectedActivities)}
+                                            onCheckedChange={() => toggle(activity.id, selectedActivities, setSelectedActivities)}
                                         />
                                         {activity.title}
                                     </label>
@@ -355,10 +353,9 @@ export default function Stats() {
                             <div className="flex max-h-24 flex-wrap gap-2 overflow-auto">
                                 {data.categories.map((category) => (
                                     <label key={category.id} className="flex items-center gap-1 text-sm">
-                                        <input
-                                            type="checkbox"
+                                        <Checkbox
                                             checked={selectedCategories.includes(category.id)}
-                                            onChange={() => toggle(category.id, selectedCategories, setSelectedCategories)}
+                                            onCheckedChange={() => toggle(category.id, selectedCategories, setSelectedCategories)}
                                         />
                                         {category.name}
                                     </label>

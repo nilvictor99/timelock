@@ -1,7 +1,7 @@
 import { Pause, X, Check } from 'lucide-react';
-import { Badge } from '@/Components/ui/Badge';
-import { Button } from '@/Components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/Card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useI18n } from '@/lib/i18n';
 import type { Activity } from '@/types';
 

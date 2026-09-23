@@ -1,8 +1,10 @@
 import * as React from 'react';
 import { Check, Download, Eye, EyeOff, Loader2, Pause, Play, RotateCcw, Trash2, XCircle } from 'lucide-react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Button } from '@/Components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/Card';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTheme } from '@/lib/theme';
 import { useI18n } from '@/lib/i18n';
 import { apiDelete, apiGet, apiPost } from '@/lib/api';
@@ -393,42 +395,53 @@ export default function Settings() {
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <label className="text-sm font-medium">
                                     {t('language')}
-                                    <select
-                                        className={inputClass}
+                                    <Select
                                         value={locale}
-                                        onChange={(event) => {
-                                            const next = event.target.value as 'es' | 'en';
-                                            setLocale(next);
+                                        onValueChange={(next) => {
+                                            setLocale(next as 'es' | 'en');
                                             update({ language: next });
                                         }}
                                     >
-                                        <option value="es">{t('spanish')}</option>
-                                        <option value="en">{t('english')}</option>
-                                    </select>
+                                        <SelectTrigger className="mt-2 w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="es">{t('spanish')}</SelectItem>
+                                            <SelectItem value="en">{t('english')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </label>
                                 <label className="text-sm font-medium">
                                     {t('theme')}
-                                    <select
-                                        className={inputClass}
+                                    <Select
                                         value={theme}
-                                        onChange={(event) => {
-                                            const next = event.target.value;
+                                        onValueChange={(next) => {
                                             setTheme(next as 'light' | 'dark' | 'system');
                                             update({ theme: next.toUpperCase() });
                                         }}
                                     >
-                                        <option value="light">{t('light')}</option>
-                                        <option value="dark">{t('dark')}</option>
-                                        <option value="system">{t('system')}</option>
-                                    </select>
+                                        <SelectTrigger className="mt-2 w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="light">{t('light')}</SelectItem>
+                                            <SelectItem value="dark">{t('dark')}</SelectItem>
+                                            <SelectItem value="system">{t('system')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </label>
                             </div>
                             <label className="block text-sm font-medium">
                                 {t('operationMode')}
-                                <select className={inputClass} value={user.operationMode} onChange={(event) => update({ operationMode: event.target.value })}>
-                                    <option value="SYNCHRONOUS">{t('sync')}</option>
-                                    <option value="FREE">{t('free')}</option>
-                                </select>
+                                <Select value={user.operationMode} onValueChange={(value) => update({ operationMode: value })}>
+                                    <SelectTrigger className="mt-2 w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="SYNCHRONOUS">{t('sync')}</SelectItem>
+                                        <SelectItem value="FREE">{t('free')}</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </label>
                             <div className="space-y-1">
                                 <AutoStatus status={statuses.language} onRevert={() => revert('language')} t={t} />
@@ -468,17 +481,27 @@ export default function Settings() {
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <label className="text-sm font-medium">
                                     {t('timeFormat')}
-                                    <select className={inputClass} value={timeFormat} onChange={(event) => setTimeFormat(event.target.value)}>
-                                        <option value="12">{t('hour12')}</option>
-                                        <option value="24">{t('hour24')}</option>
-                                    </select>
+                                    <Select value={timeFormat} onValueChange={setTimeFormat}>
+                                        <SelectTrigger className="mt-2 w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="12">{t('hour12')}</SelectItem>
+                                            <SelectItem value="24">{t('hour24')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </label>
                                 <label className="text-sm font-medium">
                                     {t('measurementUnit')}
-                                    <select className={inputClass} value={measurementUnit} onChange={(event) => setMeasurementUnit(event.target.value)}>
-                                        <option value="METRIC">{t('metric')}</option>
-                                        <option value="IMPERIAL">{t('imperial')}</option>
-                                    </select>
+                                    <Select value={measurementUnit} onValueChange={setMeasurementUnit}>
+                                        <SelectTrigger className="mt-2 w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="METRIC">{t('metric')}</SelectItem>
+                                            <SelectItem value="IMPERIAL">{t('imperial')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </label>
                             </div>
                             <AutoStatus status={statuses.timezoneOverride} onRevert={() => revert('timezoneOverride')} t={t} />
@@ -493,25 +516,30 @@ export default function Settings() {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <label className="flex items-center gap-3 text-sm font-medium">
-                                <input type="checkbox" checked={notificationsEnabled} onChange={(event) => setNotificationsEnabled(event.target.checked)} />
+                                <Checkbox checked={notificationsEnabled} onCheckedChange={(checked) => setNotificationsEnabled(checked === true)} />
                                 {t('notificationsEnabled')}
                             </label>
                             <fieldset className="space-y-2">
                                 <legend className="text-sm font-medium">{t('notificationTypes')}</legend>
                                 {notificationOptions.map(([value, label]) => (
                                     <label key={value} className="flex items-center gap-3 text-sm">
-                                        <input type="checkbox" checked={notificationTypes.includes(value)} onChange={() => toggleNotificationType(value)} />
+                                        <Checkbox checked={notificationTypes.includes(value)} onCheckedChange={() => toggleNotificationType(value)} />
                                         {t(label)}
                                     </label>
                                 ))}
                             </fieldset>
                             <label className="block text-sm font-medium">
                                 {t('notificationFrequency')}
-                                <select className={inputClass} value={notificationFrequency} onChange={(event) => setNotificationFrequency(event.target.value)}>
-                                    <option value="ALL">{t('allNotifications')}</option>
-                                    <option value="IMPORTANT">{t('importantNotifications')}</option>
-                                    <option value="MUTED">{t('mutedNotifications')}</option>
-                                </select>
+                                <Select value={notificationFrequency} onValueChange={setNotificationFrequency}>
+                                    <SelectTrigger className="mt-2 w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ALL">{t('allNotifications')}</SelectItem>
+                                        <SelectItem value="IMPORTANT">{t('importantNotifications')}</SelectItem>
+                                        <SelectItem value="MUTED">{t('mutedNotifications')}</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </label>
                             <div>
                                 <p className="text-sm font-medium">{t('quietHours')}</p>
@@ -528,8 +556,8 @@ export default function Settings() {
                             </div>
                             <div className="grid gap-4 sm:grid-cols-[1fr_140px]">
                                 <label className="flex items-center gap-3 text-sm font-medium">
-                                    <input type="checkbox" checked={voiceEnabled} onChange={(event) => setVoiceEnabled(event.target.checked)} />
-                                    {t('notificationVoice')}
+<Checkbox checked={voiceEnabled} onCheckedChange={(checked) => setVoiceEnabled(checked === true)} />
+                                {t('notificationVoice')}
                                 </label>
                                 <label className="text-sm">
                                     {t('volume')}
@@ -572,25 +600,26 @@ export default function Settings() {
                                 </div>
                             </label>
                             <label className="flex items-center gap-3 text-sm font-medium">
-                                <input type="checkbox" checked={avoidRecentActivities} onChange={(event) => setAvoidRecentActivities(event.target.checked)} />
+                                <Checkbox checked={avoidRecentActivities} onCheckedChange={(checked) => setAvoidRecentActivities(checked === true)} />
                                 {t('avoidRecent')}
                             </label>
                             <label className="block text-sm font-medium">
                                 {t('recentWindow')}
-                                <select
-                                    className={inputClass}
-                                    value={recentActivitiesWindow}
-                                    onChange={(event) => setRecentActivitiesWindow(Number(event.target.value))}
-                                >
-                                    <option value="3">{t('days3')}</option>
-                                    <option value="7">{t('days7')}</option>
-                                    <option value="14">{t('days14')}</option>
-                                    <option value="30">{t('days30')}</option>
-                                </select>
+                                <Select value={String(recentActivitiesWindow)} onValueChange={(value) => setRecentActivitiesWindow(Number(value))}>
+                                    <SelectTrigger className="mt-2 w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="3">{t('days3')}</SelectItem>
+                                        <SelectItem value="7">{t('days7')}</SelectItem>
+                                        <SelectItem value="14">{t('days14')}</SelectItem>
+                                        <SelectItem value="30">{t('days30')}</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </label>
                             <label className="flex items-center gap-3 text-sm font-medium">
-                                <input type="checkbox" checked={includeCompletedHistory} onChange={(event) => setIncludeCompletedHistory(event.target.checked)} />
-                                {t('includeCompleted')}
+<Checkbox checked={includeCompletedHistory} onCheckedChange={(checked) => setIncludeCompletedHistory(checked === true)} />
+                            {t('includeCompleted')}
                             </label>
                             <AutoStatus status={statuses.generationPersonalization} onRevert={() => revert('generationPersonalization')} t={t} />
                             <AutoStatus status={statuses.avoidRecentActivities} onRevert={() => revert('avoidRecentActivities')} t={t} />
@@ -606,10 +635,15 @@ export default function Settings() {
                         <CardContent className="space-y-5">
                             <label className="block text-sm font-medium">
                                 {t('profileVisibility')}
-                                <select className={inputClass} value={profileVisibility} onChange={(event) => setProfileVisibility(event.target.value)}>
-                                    <option value="PRIVATE">{t('privateProfile')}</option>
-                                    <option value="PUBLIC">{t('publicProfile')}</option>
-                                </select>
+                                <Select value={profileVisibility} onValueChange={setProfileVisibility}>
+                                <SelectTrigger className="mt-2 w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="PRIVATE">{t('privateProfile')}</SelectItem>
+                                    <SelectItem value="PUBLIC">{t('publicProfile')}</SelectItem>
+                                </SelectContent>
+                            </Select>
                             </label>
                             <AutoStatus status={statuses.profileVisibility} onRevert={() => revert('profileVisibility')} t={t} />
                             <div className="border-t border-border pt-4">
@@ -709,13 +743,20 @@ export default function Settings() {
                             </label>
                             <label className="block text-sm font-medium">
                                 {t('aiProvider')}
-                                <select className={inputClass} value={aiProvider} onChange={(event) => setAiProvider(event.target.value)}>
-                                    {aiProviders.map(([value, label]) => (
-                                        <option key={value} value={value}>
-                                            {t(label)}
-                                        </option>
-                                    ))}
-                                </select>
+                                <Select value={aiProvider} onValueChange={setAiProvider}>
+                                    <SelectTrigger className="mt-2 w-full">
+                                        <SelectValue placeholder={!aiProvider ? t('aiProviderNone') : undefined} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {aiProviders
+                                            .filter(([value]) => value !== '')
+                                            .map(([value, label]) => (
+                                                <SelectItem key={value} value={value}>
+                                                    {t(label)}
+                                                </SelectItem>
+                                            ))}
+                                    </SelectContent>
+                                </Select>
                             </label>
                             <label className="block text-sm font-medium">
                                 {t('aiModel')}

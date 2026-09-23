@@ -1,24 +1,23 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-
-const timeFormatter = new Intl.DateTimeFormat('es', {
-    hour: '2-digit',
-    minute: '2-digit',
-});
+import { differenceInMilliseconds, format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
 export function toDateKey(date = new Date()) {
-    const offset = date.getTimezoneOffset();
-    return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 10);
+    return format(date, 'yyyy-MM-dd');
 }
 
 export function formatTime(date: string | Date) {
-    return timeFormatter.format(new Date(date));
+    return format(new Date(date), 'HH:mm', { locale: es });
 }
 
 export function minutesBetween(start: string | Date, end: string | Date) {
-    return Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60_000));
+    return Math.max(
+        0,
+        Math.round(differenceInMilliseconds(new Date(end), new Date(start)) / 60_000),
+    );
 }

@@ -1,8 +1,10 @@
 import * as React from 'react';
 import { X } from 'lucide-react';
-import { Button } from '@/Components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/Card';
-import { Input } from '@/Components/ui/Input';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/lib/i18n';
 import { apiPost } from '@/lib/api';
 import type { Category, OperationMode } from '@/types';
@@ -81,17 +83,18 @@ export function ActivityForm({
                         </label>
                         <label className="block text-sm font-medium">
                             {t('formCategory')}
-                            <select
-                                className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                                value={categoryId}
-                                onChange={(event) => setCategoryId(event.target.value)}
-                            >
-                                {categories.map((category) => (
-                                    <option key={category.id} value={category.id}>
-                                        {category.name}
-                                    </option>
-                                ))}
-                            </select>
+                            <Select value={categoryId} onValueChange={setCategoryId}>
+                                <SelectTrigger className="mt-2 w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {categories.map((category) => (
+                                        <SelectItem key={category.id} value={category.id}>
+                                            {category.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </label>
                         {mode === 'FREE' ? (
                             <label className="block text-sm font-medium">
@@ -118,8 +121,8 @@ export function ActivityForm({
                         )}
                         <label className="block text-sm font-medium">
                             {t('formDescription')}
-                            <textarea
-                                className="mt-2 min-h-20 w-full rounded-md border border-input bg-background p-3 text-sm"
+                            <Textarea
+                                className="mt-2 min-h-20"
                                 value={description}
                                 onChange={(event) => setDescription(event.target.value)}
                             />

@@ -1,9 +1,8 @@
 import * as React from 'react';
 import { Sparkles } from 'lucide-react';
-import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Badge } from '@/Components/ui/Badge';
-import { Button } from '@/Components/ui/Button';
-import { Card, CardContent } from '@/Components/ui/Card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Empty } from '@/Components/dashboard/Empty';
 import { useI18n } from '@/lib/i18n';
 import { apiGet, apiPost } from '@/lib/api';
@@ -92,7 +91,7 @@ export default function Suggestions() {
     };
 
     return (
-        <DashboardLayout>
+        <>
             <div className="space-y-6">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
@@ -171,6 +170,6 @@ export default function Suggestions() {
                     </div>
                 )}
             </div>
-        </DashboardLayout>
+        </>
     );
 }
