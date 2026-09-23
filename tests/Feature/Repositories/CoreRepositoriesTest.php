@@ -58,6 +58,18 @@ it('manages qr login tokens (create, consume, cleanup)', function () {
         ->and($expired->fresh())->toBeNull();
 });
 
+it('prunes expired qr login tokens keeping fresh ones', function () {
+    $user = makeUserB('qrp@example.com');
+    $repo = app(QrLoginTokenRepositoryInterface::class);
+
+    $fresh = $repo->create($user->id, hash('sha256', 'qr-fresh'), now()->addMinutes(10));
+    $repo->create($user->id, hash('sha256', 'qr-expired'), now()->subMinute());
+
+    expect($repo->prune())->toBe(1)
+        ->and($repo->findByHash(hash('sha256', 'qr-fresh'))?->id)->toBe($fresh->id)
+        ->and($repo->findByHash(hash('sha256', 'qr-expired')))->toBeNull();
+});
+
 it('manages rewards scoped by user', function () {
     $user = makeUserB('rew@example.com');
     $repo = app(RewardRepositoryInterface::class);

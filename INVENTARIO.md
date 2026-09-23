@@ -19,6 +19,8 @@ Generado: 2026-09-21 (Tarea 0 del plan maestro).
 ### API routes
 `POST /api/auth/register` · `POST /api/auth/login` · `POST /api/auth/logout` · `GET /api/auth/me` · `POST /api/auth/qr` · `POST /api/auth/qr-login` · `GET /api/bootstrap` (GET/POST/PATCH/DELETE) · `GET /api/export` · `POST /api/profile/avatar` · `POST /api/api/profile/email` · `POST /api/profile/password` · `GET /api/suggestions` · `POST /api/ai/test-connection`
 
+> En Laravel los endpoints QR se registraron **sin** prefijo `/api`: `POST /auth/qr` y `POST /auth/qr-login` (web). El resto conserva el prefijo `/api`.
+
 ### Componentes
 `auth-form`, `dashboard-shell`, `dashboard`, `onboarding`, `profile-screen`, `qr-scanner`, `settings-screen`, `stats-screen`, `theme-provider`, `ui/{button,card,input,badge}`.
 
@@ -62,7 +64,11 @@ react 18.3, zod, bcryptjs, date-fns, recharts, qrcode, html5-qrcode, jspdf, luci
 - [x] Tests `tests/Feature/Api/{Bootstrap,Profile,Export,Suggestions,Ai}ApiTest.php` + trait `WithSessionClient` (authenticate + cookie sin cifrar)
 
 ### Estado (Tareas 4.5 y 5) — 80 tests verdes, `tsc` limpio, `npm run build` OK
-- [x] Design system shadcn/ui: `resources/css/app.css` con tokens neutrales 1:1 (light/dark, `@theme inline`, radios, `--font-sans` v3, success/danger/info/warning), primitivas `ui/{Button,Card,Input,Badge}` + `cn()`, alias `@/`
+- [x] Design system shadcn/ui **registrado vía CLI** (`npx shadcn init -t laravel -b radix -y -p nova`): `components.json` (radix-nova, alias `@/components`/`@/lib/utils`), primitivas en `resources/js/components/ui/*` (minúsculas): button/card/input/badge/checkbox/select/textarea/dialog, ajustadas a las métricas del origen (Button danger + sizes h-8/h-10/h-12, Card rounded-xl shadow-sm, Input h-10, Badge success/warning/danger)
+- [x] `resources/css/app.css`: tokens neutrales 1:1 (light/dark, `@theme inline` en forma `hsl(var(--x))`, radios, `--font-sans` v3, success/danger/info/warning) + `@import "shadcn/tailwind.css"` + `tw-animate-css`; **fix bug**: con `var(--muted)` el CSS compilaba `background-color: var(--muted)` (triplete inválido); con `hsl(var(--muted))` compila `background-color: hsl(var(--muted))`
+- [x] Todos los `<select>`/checboxes/`<textarea>` nativos de las páginas → `Select`/`Checkbox`/`Textarea` shadcn (Settings, Profile, Onboarding, Stats, Login/Register); modales con `Dialog` (email/password Profile); `SelectItem` sin valores vacíos (placeholder con `SelectValue`)
+- [x] **zod reincorporado**: `lib/validations.ts` (`emailSchema`, `passwordSchema`, `dateRangeSchema`) usado en Profile (email/password) y en el rango custom de Stats
+- [x] **date-fns reincorporado**: `lib/utils.ts` (`toDateKey`, `formatTime`, `minutesBetween`) migrado a date-fns sin cambiar la API
 - [x] `ThemeProvider` propio (API `useTheme`, localStorage `timelock-theme`, default system) con script anti-FOUC en `app.blade.php`; inicializado desde `auth.user.theme` (LIGHT/DARK/SYSTEM → BD)
 - [x] `I18nProvider` propio: cookie `timelock_locale` (es/en), `useI18n()` con `t()`; `locale` compartido por `HandleInertiaRequests` (user.language → cookie → es)
 - [x] `HandleInertiaRequests` resuelve el usuario desde `auth_user`/cookie y comparte `auth.user` + `locale`
@@ -71,13 +77,23 @@ react 18.3, zod, bcryptjs, date-fns, recharts, qrcode, html5-qrcode, jspdf, luci
 - [x] `Profile`: avatar (multipart), cambio de email y contraseña (invalida sesiones y refresca cookie); `Settings`: nombre, tema (persiste en BD vía `bootstrap settings`), idioma, modo
 - [x] Rutas `/dashboard/profile|settings|stats` protegidas (`auth.session`) + `tests/Feature/Web/InertiaPagesTest.php` (3 tests)
 - [x] `tsconfig.json` sin `baseUrl` (TS7) con rutas relativas; tipos en `resources/js/types.ts`; helper `lib/api.ts`
-- [x] **QR login completo**: `Components/QrCode` (paquete `qrcode`), `/dashboard/qr` (página autenticada con token único auto-renovable cada 60s + consumo de prueba), `/auth/qr-login` (página invitado con escáner `html5-qrcode` + fallback a pegar token) → consume `/auth/qr-login` y redirige a dashboard/onboarding
+- [x] **QR login completo v2**: flujo integrado en `Login.tsx` (escáner `html5-qrcode` + fallback pegar token + `?qr=` autologin) y en la tarjeta Seguridad de `Profile.tsx` (generador: `Components/QrCode` (paquete `qrcode`), auto-renovación cada 60s con cuenta atrás, PNG/PDF, botón "Probar en este dispositivo" → `POST /auth/qr-login`); consume `/auth/qr-login` y redirige a dashboard u onboarding según `onboarding_completed`
 - [x] **Stats mejoradas**: gráfico de barras de completadas últimos 14 días (recharts), botones Exportar CSV (`/api/export`) y Exportar PDF (`jspdf`)
 - [x] Deps nuevas: `qrcode`, `html5-qrcode`, `recharts`, `jspdf`, `@types/qrcode`
 - [x] `lib/api.ts`: envía `X-XSRF-TOKEN` (desde cookie) en todas las peticiones — sin esto los POST/PATCH/DELETE de fetch daban 419. `...init` va antes que `headers` para no pisarlos
 - [x] Fix HMR dev "can't detect preamble": `import '@vitejs/plugin-react/preamble'` como primer import de `resources/js/app.tsx` (la solución documentada para apps que no usan `transformIndexHtml`, como Laravel). Sin esto, en `npm run dev` los módulos JSX se cargaban sin el runtime de React Refresh y el browser lanzaba el error. Verificado: el módulo virtual sirve `injectIntoGlobalHook` e `i18n.tsx` ya se envuelve con Refresh; el build de producción no se ve afectado
 - [x] Verificación de humo (curl contra contenedor): Landing/Login/Register/qr-login 200; todas las páginas dashboard 200 con su `component` correcto; `/api/bootstrap` sin `password_hash`; QR **e2e completo** (crear 200, consumir con token nuevo → `{"ok":true,"redirect"}` + `Set-Cookie: timelock_session` 30 días)
 
+### Estado (Tareas 6 — Mejoras QR, 2026-09-23)
+- [x] Fix 404: `Profile.tsx` llamaba `POST /api/auth/qr` (ruta inexistente) → ahora `POST /auth/qr` (mismo path que `qrLogin` consume)
+- [x] Revocación: `AuthService::createQrToken` ahora llama `deleteUnused(userId)` antes de insertar → generar un QR nuevo invalida los pendientes (paridad con `deleteUnusedQrTokens` de Next.js)
+- [x] CSRF: `Login.tsx` consumía `/auth/qr-login` con `fetch` crudo sin `X-XSRF-TOKEN` (→ 419 en navegador); ahora usa `apiPost` (que lo envía). `api.ts` además expone `message` (ej. too-many-attempts) en el error
+- [x] Mismo origen: `normalizeQrValue` (Login) rechaza URL de QR de otro origen (`parsed.origin === window.location.origin`)
+- [x] `AuthController::qr` responde `Cache-Control: no-store` (paridad con Next)
+- [x] Throttle `POST /auth/qr-login`: 10/min por IP (`throttle:10,1`)
+- [x] Comando `qr:prune` (borra tokens caducados) + `Schedule::command('qr:prune')->daily()` en `routes/console.php`
+- [x] i18n: eliminadas claves huérfanas (`qrlogin.*`, `qr.title`, `qr.explanation`, `qr.refresh`, `nav.qr`); se reutilizan `qr.expires` y `qr.test`
+- [x] Fix tsc: `DashboardLayout` pasaba `NavId` ('home') donde se esperaba `TabId` → guard `isTabId`
+
 ### Pendiente
 - Verificación visual manual foto a foto con las pantallas Next.js (checklist 21.3) — opcional, el smoke end-to-end ya cubre el flujo crítico
-- `git init` + primer commit ya hecho (7789544); falta commit de `lib/api.ts` (CSRF)

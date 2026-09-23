@@ -17,7 +17,6 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('/register', [AuthController::class, 'register']);
-    Route::get('/auth/qr-login', fn () => Inertia::render('Auth/QrLogin'))->name('auth.qr-login.show');
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -27,21 +26,28 @@ Route::middleware('auth.session')->group(function () {
     Route::post('/auth/qr', [AuthController::class, 'qr'])->name('auth.qr');
 });
 
-Route::post('/auth/qr-login', [AuthController::class, 'qrLogin'])->name('auth.qr-login');
+Route::post('/auth/qr-login', [AuthController::class, 'qrLogin'])
+    ->middleware('throttle:10,1')
+    ->name('auth.qr-login');
 
 Route::middleware('auth.session')->group(function () {
-    Route::get('/onboarding', fn () => Inertia::render('Onboarding'))->name('onboarding');
-    Route::get('/dashboard', fn () => Inertia::render('Dashboard/Index'))->name('dashboard');
-    Route::get('/dashboard/activities', fn () => Inertia::render('Dashboard/Activities'))->name('dashboard.activities');
-    Route::get('/dashboard/suggestions', fn () => Inertia::render('Dashboard/Suggestions'))->name('dashboard.suggestions');
-    Route::get('/dashboard/rewards', fn () => Inertia::render('Dashboard/Rewards'))->name('dashboard.rewards');
-    Route::get('/dashboard/calendar', fn () => Inertia::render('Dashboard/Calendar'))->name('dashboard.calendar');
-    Route::get('/dashboard/streak', fn () => Inertia::render('Dashboard/Streak'))->name('dashboard.streak');
-    Route::get('/dashboard/export', fn () => Inertia::render('Dashboard/Export'))->name('dashboard.export');
+    Route::get('/onboarding', function (Request $request) {
+        $user = $request->attributes->get('auth_user');
+        if ($user !== null && $user->onboarding_completed) {
+            return redirect()->route('dashboard');
+        }
+        return Inertia::render('Onboarding');
+    })->name('onboarding');
+    Route::get('/dashboard', function (Request $request) {
+        $user = $request->attributes->get('auth_user');
+        if ($user !== null && ! $user->onboarding_completed) {
+            return redirect()->route('onboarding');
+        }
+        return Inertia::render('Dashboard/Index');
+    })->name('dashboard');
     Route::get('/dashboard/profile', fn (Request $request) => Inertia::render('Dashboard/Profile', ['user' => $request->attributes->get('auth_user')]))->name('dashboard.profile');
     Route::get('/dashboard/settings', fn (Request $request) => Inertia::render('Dashboard/Settings', ['user' => $request->attributes->get('auth_user')]))->name('dashboard.settings');
     Route::get('/dashboard/stats', fn () => Inertia::render('Dashboard/Stats'))->name('dashboard.stats');
-    Route::get('/dashboard/qr', fn () => Inertia::render('Dashboard/Qr'))->name('dashboard.qr');
 
     Route::get('/api/bootstrap', [DashboardController::class, 'bootstrap'])->name('api.bootstrap');
     Route::post('/api/bootstrap', [DashboardController::class, 'store']);

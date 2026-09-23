@@ -161,6 +161,7 @@ class AuthService
         $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
         $expiresAt = CarbonImmutable::now()->addMinutes(self::QR_TTL_MINUTES);
 
+        $this->tokens->deleteUnused($user->id);
         $this->tokens->create($user->id, $this->hashToken($token), $expiresAt);
 
         return ['token' => $token, 'expiresAt' => $expiresAt];

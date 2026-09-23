@@ -97,3 +97,14 @@ it('rejects an expired QR token', function () {
 
     expect($service->loginWithQr($qr['token']))->toBeNull();
 });
+
+it('revokes previous unused QR tokens when a new one is created', function () {
+    $service = app(AuthService::class);
+    $result = $service->register(['email' => 'qv@example.com', 'name' => 'QV', 'password' => 'abc12345']);
+
+    $first = $service->createQrToken($result['user']);
+    $second = $service->createQrToken($result['user']);
+
+    expect($service->loginWithQr($first['token']))->toBeNull()
+        ->and($service->loginWithQr($second['token'])?->id)->toBe($result['user']->id);
+});

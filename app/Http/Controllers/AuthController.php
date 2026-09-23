@@ -110,7 +110,9 @@ class AuthController extends Controller
 
         $qr = $this->auth->createQrToken($user);
 
-        return response()->json(['token' => $qr['token'], 'expiresAt' => $qr['expiresAt']->toIso8601String()]);
+        return response()
+            ->json(['token' => $qr['token'], 'expiresAt' => $qr['expiresAt']->toIso8601String()])
+            ->header('Cache-Control', 'no-store');
     }
 
     public function qrLogin(Request $request): JsonResponse

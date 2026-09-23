@@ -14,4 +14,6 @@ interface QrLoginTokenRepositoryInterface
     public function consume(string $id): bool;
 
     public function deleteUnused(string $userId): int;
+
+    public function prune(): int;
 }

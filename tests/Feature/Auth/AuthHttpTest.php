@@ -82,6 +82,7 @@ it('rejects invalid login credentials', function () {
 it('protects dashboard with the session cookie', function () {
     $auth = app(AuthService::class);
     $result = $auth->register(['email' => 'protect@example.com', 'name' => 'P', 'password' => 'clave-super-segura']);
+    $result['user']->update(['onboarding_completed' => true]);
 
     $this->get('/dashboard')->assertRedirect();
 
@@ -130,4 +131,54 @@ it('returns the current user from /auth/me', function () {
         ->getJson('/auth/me')
         ->assertOk()
         ->assertJsonPath('user.email', 'me@example.com');
+});
+
+it('does not cache the QR token response', function () {
+    $auth = app(AuthService::class);
+    $result = $auth->register(['email' => 'qrs@example.com', 'name' => 'QS', 'password' => 'clave-super-segura']);
+
+    $this->withUnencryptedCookie(AuthService::SESSION_COOKIE, $result['token'])
+        ->withCredentials()
+        ->postJson('/auth/qr')
+        ->assertOk()
+        ->assertHeaderContains('Cache-Control', 'no-store');
+});
+
+it('redirects to onboarding after QR login when onboarding is pending', function () {
+    $auth = app(AuthService::class);
+    $result = $auth->register(['email' => 'qron@example.com', 'name' => 'QON', 'password' => 'clave-super-segura']);
+
+    $qr = $this->withUnencryptedCookie(AuthService::SESSION_COOKIE, $result['token'])
+        ->withCredentials()
+        ->postJson('/auth/qr')
+        ->assertOk()
+        ->json('token');
+
+    $this->postJson('/auth/qr-login', ['token' => $qr])
+        ->assertOk()
+        ->assertJsonPath('redirect', route('onboarding'));
+});
+
+it('redirects to dashboard after QR login when onboarding is complete', function () {
+    $auth = app(AuthService::class);
+    $result = $auth->register(['email' => 'qrdash@example.com', 'name' => 'QD', 'password' => 'clave-super-segura']);
+    $result['user']->update(['onboarding_completed' => true]);
+
+    $qr = $this->withUnencryptedCookie(AuthService::SESSION_COOKIE, $result['token'])
+        ->withCredentials()
+        ->postJson('/auth/qr')
+        ->assertOk()
+        ->json('token');
+
+    $this->postJson('/auth/qr-login', ['token' => $qr])
+        ->assertOk()
+        ->assertJsonPath('redirect', route('dashboard'));
+});
+
+it('throttles qr-login attempts to 10 per minute', function () {
+    foreach (range(1, 10) as $i) {
+        $this->postJson('/auth/qr-login', ['token' => 'x'])->assertStatus(401);
+    }
+
+    $this->postJson('/auth/qr-login', ['token' => 'x'])->assertStatus(429);
 });

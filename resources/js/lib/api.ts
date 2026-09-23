@@ -22,7 +22,8 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     const data = (await response.json().catch(() => null)) as T | null;
 
     if (!response.ok) {
-        throw new Error((data as { error?: string } | null)?.error ?? `Error ${response.status}`);
+        const payload = data as { error?: string; message?: string } | null;
+        throw new Error(payload?.error ?? payload?.message ?? `Error ${response.status}`);
     }
 
     return data as T;

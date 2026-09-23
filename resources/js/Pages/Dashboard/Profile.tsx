@@ -1,11 +1,17 @@
 import * as React from 'react';
 import QRCode from 'qrcode';
-import { Camera, Check, Copy, KeyRound, Loader2, Mail, RotateCcw, ShieldCheck, X, XCircle } from 'lucide-react';
+import { Camera, Check, Copy, Loader2, Mail, RotateCcw, ShieldCheck, X, XCircle } from 'lucide-react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Button } from '@/Components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/Card';
-import { Input } from '@/Components/ui/Input';
+import { QrCode } from '@/Components/QrCode';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/lib/i18n';
+import { emailSchema } from '@/lib/validations';
 import { apiForm, apiGet, apiPost } from '@/lib/api';
 import { useAutosave, type AutosaveStatus } from '@/lib/use-autosave';
 
@@ -135,15 +141,6 @@ function formFromUser(user: Record<string, any>): ProfileForm {
     };
 }
 
-function passwordStrength(value: string) {
-    let score = 0;
-    if (value.length >= 12) score += 1;
-    if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score += 1;
-    if (/\d/.test(value)) score += 1;
-    if (/[^A-Za-z0-9]/.test(value)) score += 1;
-    return Math.min(score, 3);
-}
-
 function ageFromBirthDate(value: string) {
     if (!value) return '';
     const birthDate = new Date(`${value}T00:00:00`);
@@ -157,15 +154,12 @@ function ageFromBirthDate(value: string) {
     return age >= 0 ? String(age) : '';
 }
 
-function validEmail(value: string) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim().toLowerCase());
-}
-
 export default function Profile() {
     const { t, locale, setLocale } = useI18n();
     const [data, setData] = React.useState<ProfileData | null>(null);
     const [form, setForm] = React.useState<ProfileForm>(emptyForm);
     const [qr, setQr] = React.useState<{ imageUrl: string; token: string; loginUrl: string; expiresAt: string } | null>(null);
+    const [secondsLeft, setSecondsLeft] = React.useState(60);
     const [message, setMessage] = React.useState('');
     const [loaded, setLoaded] = React.useState(false);
     const [newSkill, setNewSkill] = React.useState('');
@@ -174,9 +168,6 @@ export default function Profile() {
     const [emailModalOpen, setEmailModalOpen] = React.useState(false);
     const [emailPassword, setEmailPassword] = React.useState('');
     const [emailSaving, setEmailSaving] = React.useState(false);
-    const [passwordModalOpen, setPasswordModalOpen] = React.useState(false);
-    const [passwordForm, setPasswordForm] = React.useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    const [passwordSaving, setPasswordSaving] = React.useState(false);
     const [toast, setToast] = React.useState('');
 
     const load = async () => {
@@ -197,11 +188,14 @@ export default function Profile() {
     }, []);
 
     React.useEffect(() => {
-        if (!qr) return;
-        const remaining = new Date(qr.expiresAt).getTime() - Date.now();
-        const timeout = window.setTimeout(() => setQr(null), Math.max(0, remaining));
-        return () => window.clearTimeout(timeout);
-    }, [qr]);
+        const interval = window.setInterval(() => setSecondsLeft((current) => Math.max(0, current - 1)), 1000);
+        return () => window.clearInterval(interval);
+    }, []);
+
+    React.useEffect(() => {
+        if (!qr || secondsLeft > 0) return;
+        void generateQr();
+    }, [qr, secondsLeft]);
 
     React.useEffect(() => {
         if (!toast) return;
@@ -293,7 +287,7 @@ export default function Profile() {
     }
 
     async function updateEmail() {
-        if (!validEmail(email) || !emailPassword) {
+        if (!emailSchema.safeParse(email).success || !emailPassword) {
             setMessage(t('profileValidationError'));
             return;
         }
@@ -308,28 +302,6 @@ export default function Profile() {
             setMessage(cause instanceof Error ? cause.message : t('saveError'));
         } finally {
             setEmailSaving(false);
-        }
-    }
-
-    async function updatePassword() {
-        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-            setMessage(t('passwordMismatch'));
-            return;
-        }
-        if (passwordForm.newPassword.length < 12 || !passwordForm.currentPassword) {
-            setMessage(t('profileValidationError'));
-            return;
-        }
-        setPasswordSaving(true);
-        try {
-            await apiPost('/api/profile/password', passwordForm);
-            setPasswordModalOpen(false);
-            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-            setToast(t('passwordChanged'));
-        } catch (cause) {
-            setMessage(cause instanceof Error ? cause.message : t('saveError'));
-        } finally {
-            setPasswordSaving(false);
         }
     }
 
@@ -352,15 +324,28 @@ export default function Profile() {
 
     async function generateQr() {
         try {
-            const result = await apiPost<{ token: string; expiresAt: string }>('/api/auth/qr', {});
-            const loginUrl = `${window.location.origin}/auth/qr-login?qr=${encodeURIComponent(result.token)}`;
+            const result = await apiPost<{ token: string; expiresAt: string }>('/auth/qr', {});
+            const loginUrl = `${window.location.origin}/login?qr=${encodeURIComponent(result.token)}`;
             setQr({
                 imageUrl: await QRCode.toDataURL(loginUrl, { margin: 2, width: 240 }),
                 token: result.token,
                 loginUrl,
                 expiresAt: result.expiresAt,
             });
+            setSecondsLeft(60);
         } catch (cause) {
+            setSecondsLeft(10);
+            setMessage(cause instanceof Error ? cause.message : t('saveError'));
+        }
+    }
+
+    async function consumeHere() {
+        if (!qr) return;
+        try {
+            await apiPost<{ ok: boolean }>('/auth/qr-login', { token: qr.token });
+            await generateQr();
+        } catch (cause) {
+            setSecondsLeft(10);
             setMessage(cause instanceof Error ? cause.message : t('saveError'));
         }
     }
@@ -436,14 +421,11 @@ export default function Profile() {
                                     <Button
                                         type="button"
                                         onClick={() => setEmailModalOpen(true)}
-                                        disabled={email === (user.email ?? '') || !validEmail(email)}
+                                        disabled={email === (user.email ?? '') || !emailSchema.safeParse(email).success}
                                     >
                                         {t('updateEmail')}
                                     </Button>
                                 </div>
-                                <Button type="button" variant="outline" onClick={() => setPasswordModalOpen(true)}>
-                                    <KeyRound size={16} /> {t('changePassword')}
-                                </Button>
                             </CardContent>
                         </Card>
 
@@ -459,9 +441,9 @@ export default function Profile() {
                                 <AutoStatus status={statuses.name} onRevert={() => revert('name')} t={t} />
                                 <label className="block text-sm font-medium">
                                     {t('bio')}
-                                    <textarea
+                                    <Textarea
                                         maxLength={160}
-                                        className="mt-2 min-h-24 w-full rounded-md border border-input bg-background p-3 text-sm"
+                                        className="mt-2 min-h-24"
                                         value={form.bio}
                                         onChange={(event) => setField('bio', event.target.value)}
                                     />
@@ -531,7 +513,7 @@ export default function Profile() {
                                 <div className="mt-4 flex flex-wrap items-start gap-5">
                                     {qr && (
                                         <div className="rounded-lg border bg-white p-2">
-                                            <img src={qr.imageUrl} alt={t('qrLogin')} className="h-56 w-56" />
+                                            <QrCode value={qr.loginUrl} size={224} />
                                             <p className="mt-2 text-center text-xs text-slate-700">{t('qrScan')}</p>
                                         </div>
                                     )}
@@ -541,6 +523,9 @@ export default function Profile() {
                                             <>
                                                 <p className="text-xs text-muted-foreground">
                                                     {t('qrValidUntil')}: {new Date(qr.expiresAt).toLocaleString(locale)}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {t('qr.expires')}: {secondsLeft}s
                                                 </p>
                                                 <div className="space-y-1 text-sm">
                                                     <p className="break-all">
@@ -568,6 +553,9 @@ export default function Profile() {
                                                     </Button>
                                                     <Button variant="outline" size="sm" onClick={() => void downloadQrPdf()}>
                                                         {t('downloadPdf')}
+                                                    </Button>
+                                                    <Button variant="outline" size="sm" onClick={() => void consumeHere()}>
+                                                        {t('qr.test')}
                                                     </Button>
                                                 </div>
                                                 <p className="max-w-xs text-xs text-warning">{t('qrDownloadWarning')}</p>
@@ -608,9 +596,9 @@ export default function Profile() {
                     </div>
                     <label className="block text-sm font-medium">
                         {t('physicalLimitations')}
-                        <textarea
+                        <Textarea
                             maxLength={500}
-                            className="mt-2 min-h-24 w-full rounded-md border border-input bg-background p-3 text-sm"
+                            className="mt-2 min-h-24"
                             value={form.physicalLimitations}
                             onChange={(event) => setField('physicalLimitations', event.target.value)}
                         />
@@ -637,15 +625,16 @@ export default function Profile() {
                             </label>
                             <label className="text-sm font-medium">
                                 {t('experience')}
-                                <select
-                                    className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                                    value={skillExperience}
-                                    onChange={(event) => setSkillExperience(event.target.value as Experience)}
-                                >
-                                    <option value="BASIC">{t('basic')}</option>
-                                    <option value="INTERMEDIATE">{t('intermediate')}</option>
-                                    <option value="EXPERT">{t('expert')}</option>
-                                </select>
+                                <Select value={skillExperience} onValueChange={(value) => setSkillExperience(value as Experience)}>
+                                    <SelectTrigger className="mt-2 w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="BASIC">{t('basic')}</SelectItem>
+                                        <SelectItem value="INTERMEDIATE">{t('intermediate')}</SelectItem>
+                                        <SelectItem value="EXPERT">{t('expert')}</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </label>
                         </div>
                         <div className="flex flex-wrap gap-2">
@@ -839,8 +828,8 @@ export default function Profile() {
                 <Section title={t('profileGoals')}>
                     <label className="block text-sm font-medium">
                         {t('mainGoals')}
-                        <textarea
-                            className="mt-2 min-h-28 w-full rounded-md border border-input bg-background p-3 text-sm"
+                        <Textarea
+                            className="mt-2 min-h-28"
                             placeholder={t('goalPlaceholder')}
                             value={form.mainGoals.join('\n')}
                             onChange={(event) =>
@@ -853,9 +842,9 @@ export default function Profile() {
                     </label>
                     <label className="block text-sm font-medium">
                         {t('shortTermGoals')}
-                        <textarea
+                        <Textarea
                             maxLength={1000}
-                            className="mt-2 min-h-24 w-full rounded-md border border-input bg-background p-3 text-sm"
+                            className="mt-2 min-h-24"
                             value={form.shortTermGoals}
                             onChange={(event) => setField('shortTermGoals', event.target.value)}
                         />
@@ -877,120 +866,45 @@ export default function Profile() {
                     <AutoStatus status={statuses.motivationLevel} onRevert={() => revert('motivationLevel')} t={t} />
                 </Section>
             </div>
-            {emailModalOpen && (
-                <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" role="dialog" aria-modal="true">
-                    <Card className="w-full max-w-md">
-                        <CardHeader>
-                            <CardTitle>{t('updateEmail')}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <p className="text-sm text-muted-foreground">{t('currentPassword')}</p>
-                            <Input
-                                type="password"
-                                autoComplete="current-password"
-                                value={emailPassword}
-                                onChange={(event) => setEmailPassword(event.target.value)}
-                            />
-                            <div className="flex justify-end gap-2">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => {
-                                        setEmailModalOpen(false);
-                                        setEmailPassword('');
-                                    }}
-                                >
-                                    {t('cancel')}
-                                </Button>
-                                <Button type="button" disabled={emailSaving} onClick={() => void updateEmail()}>
-                                    {emailSaving ? t('loading') : t('updateEmail')}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
-            {passwordModalOpen && (
-                <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" role="dialog" aria-modal="true">
-                    <Card className="w-full max-w-md">
-                        <CardHeader>
-                            <CardTitle>{t('changePassword')}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <label className="block text-sm font-medium">
-                                {t('currentPassword')}
-                                <Input
-                                    className="mt-2"
-                                    type="password"
-                                    autoComplete="current-password"
-                                    value={passwordForm.currentPassword}
-                                    onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))}
-                                />
-                            </label>
-                            <label className="block text-sm font-medium">
-                                {t('newPassword')}
-                                <Input
-                                    className="mt-2"
-                                    type="password"
-                                    autoComplete="new-password"
-                                    minLength={12}
-                                    value={passwordForm.newPassword}
-                                    onChange={(event) => setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))}
-                                />
-                            </label>
-                            <div aria-live="polite">
-                                <div className="flex gap-1">
-                                    {[1, 2, 3].map((level) => (
-                                        <span
-                                            key={level}
-                                            className={`h-1.5 flex-1 rounded-full ${
-                                                passwordStrength(passwordForm.newPassword) >= level
-                                                    ? level === 3
-                                                        ? 'bg-success'
-                                                        : 'bg-warning'
-                                                    : 'bg-muted'
-                                            }`}
-                                        />
-                                    ))}
-                                </div>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    {t('passwordStrength')}:{' '}
-                                    {passwordStrength(passwordForm.newPassword) >= 3
-                                        ? t('strong')
-                                        : passwordStrength(passwordForm.newPassword) >= 2
-                                          ? t('mediumStrength')
-                                          : t('weak')}
-                                </p>
-                            </div>
-                            <label className="block text-sm font-medium">
-                                {t('confirmPassword')}
-                                <Input
-                                    className="mt-2"
-                                    type="password"
-                                    autoComplete="new-password"
-                                    value={passwordForm.confirmPassword}
-                                    onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))}
-                                />
-                            </label>
-                            <div className="flex justify-end gap-2">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => {
-                                        setPasswordModalOpen(false);
-                                        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-                                    }}
-                                >
-                                    {t('cancel')}
-                                </Button>
-                                <Button type="button" disabled={passwordSaving} onClick={() => void updatePassword()}>
-                                    {passwordSaving ? t('loading') : t('save')}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
+            <Dialog
+                open={emailModalOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setEmailModalOpen(false);
+                        setEmailPassword('');
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{t('updateEmail')}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <p className="text-sm text-muted-foreground">{t('currentPassword')}</p>
+                        <Input
+                            type="password"
+                            autoComplete="current-password"
+                            value={emailPassword}
+                            onChange={(event) => setEmailPassword(event.target.value)}
+                        />
+                        <div className="flex justify-end gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    setEmailModalOpen(false);
+                                    setEmailPassword('');
+                                }}
+                            >
+                                {t('cancel')}
+                            </Button>
+                            <Button type="button" disabled={emailSaving} onClick={() => void updateEmail()}>
+                                {emailSaving ? t('loading') : t('updateEmail')}
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
             {toast && (
                 <div
                     className="fixed bottom-6 right-6 z-[60] rounded-lg bg-foreground px-4 py-3 text-sm text-background shadow-lg"
@@ -1028,14 +942,18 @@ function SelectField({
     return (
         <label className="text-sm font-medium">
             {label}
-            <select className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={value} onChange={(event) => onChange(event.target.value)}>
-                <option value="">{t('chooseOption')}</option>
-                {options.map(([option, text]) => (
-                    <option key={option} value={option}>
-                        {text}
-                    </option>
-                ))}
-            </select>
+            <Select value={value} onValueChange={onChange}>
+                <SelectTrigger className="mt-2 w-full">
+                    <SelectValue placeholder={t('chooseOption')} />
+                </SelectTrigger>
+                <SelectContent>
+                    {options.map(([option, text]) => (
+                        <SelectItem key={option} value={option}>
+                            {text}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
         </label>
     );
 }
@@ -1060,7 +978,7 @@ function CheckboxGroup({
                         key={value}
                         className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm has-[:checked]:bg-muted"
                     >
-                        <input type="checkbox" className="accent-foreground" checked={values.includes(value)} onChange={() => onToggle(value)} />
+                        <Checkbox checked={values.includes(value)} onCheckedChange={() => onToggle(value)} />
                         {text}
                     </label>
                 ))}

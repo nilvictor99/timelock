@@ -29,4 +29,9 @@ class QrLoginTokenService
     {
         return $this->tokens->deleteUnused($userId);
     }
+
+    public function prune(): int
+    {
+        return $this->tokens->prune();
+    }
 }

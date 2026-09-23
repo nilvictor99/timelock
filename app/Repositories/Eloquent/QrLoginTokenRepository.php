@@ -38,4 +38,9 @@ class QrLoginTokenRepository implements QrLoginTokenRepositoryInterface
             ->where(fn ($query) => $query->whereNull('used_at')->orWhere('expires_at', '<=', now()))
             ->delete();
     }
+
+    public function prune(): int
+    {
+        return QrLoginToken::where('expires_at', '<=', now())->delete();
+    }
 }

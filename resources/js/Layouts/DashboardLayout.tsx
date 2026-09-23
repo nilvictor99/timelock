@@ -19,11 +19,11 @@ import {
     UserRound,
     X,
 } from 'lucide-react';
-import { Button } from '@/Components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
-import { mobileMoreNavigation, mobilePrimaryNavigation, navigationPath, type NavId } from '@/lib/navigation';
+import { mobileMoreNavigation, mobilePrimaryNavigation, navigationPath, isTabId, type NavId, type TabId } from '@/lib/navigation';
 import type { User } from '@/types';
 
 export type ShellNavId = NavId;
@@ -42,9 +42,19 @@ const navItems: { id: NavId; labelKey: string; icon: typeof Home }[] = [
 ];
 
 function activeFromUrl(rawUrl: string): NavId {
-    const url = rawUrl.split('?')[0];
-    const match = navItems.find((item) => navigationPath(item.id) === url);
+    const [pathname, query] = rawUrl.split('?');
+    if (pathname === '/dashboard') {
+        const tab = new URLSearchParams(query).get('tab');
+        if (isTabId(tab)) return tab;
+        if (tab === 'home' || tab === null) return 'home';
+        return 'home';
+    }
+    const match = navItems.find((item) => navigationPath(item.id) === pathname);
     return match?.id ?? 'home';
+}
+
+function isRouteNav(id: NavId): boolean {
+    return id === 'profile' || id === 'settings' || id === 'stats';
 }
 
 const headerDateFormatters = {
@@ -52,12 +62,20 @@ const headerDateFormatters = {
     'en-US': new Intl.DateTimeFormat('en-US', { weekday: 'long', day: 'numeric', month: 'long' }),
 };
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+    children,
+    active,
+    onTabChange,
+}: {
+    children: React.ReactNode;
+    active?: NavId;
+    onTabChange?: (tab: TabId) => void;
+}) {
     const { t } = useI18n();
     const { setTheme, resolvedTheme } = useTheme();
     const page = usePage<{ auth?: { user?: User | null } }>();
     const user = page.props.auth?.user;
-    const active = activeFromUrl(page.url);
+    const navActive = active ?? activeFromUrl(page.url);
 
     const [mobileNav, setMobileNav] = React.useState(false);
     const [expanded, setExpanded] = React.useState(true);
@@ -92,7 +110,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return () => window.clearInterval(id);
     }, [dateLocale]);
 
-    const title = t(navItems.find((item) => item.id === active)?.labelKey ?? 'navHome') || active;
+    const title = t(navItems.find((item) => item.id === navActive)?.labelKey ?? 'navHome') || navActive;
     const initials =
         user?.name
             ?.trim()
@@ -110,23 +128,63 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const renderItem = (item: (typeof navItems)[number]) => {
         const label = t(item.labelKey) || item.id;
         const Icon = item.icon;
+        const className = cn(
+            'flex w-full items-center rounded-md py-2 text-sm transition-colors',
+            expanded ? 'gap-3 px-3' : 'justify-center px-2',
+            navActive === item.id
+                ? 'bg-foreground text-background'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+        );
+        const closeMobileNav = () => setMobileNav(false);
+        const inner = (
+            <>
+                <Icon size={17} aria-hidden="true" />
+                {expanded && <span>{label}</span>}
+            </>
+        );
+
+        if (isRouteNav(item.id)) {
+            return (
+                <Link
+                    key={item.id}
+                    href={navigationPath(item.id)}
+                    onClick={closeMobileNav}
+                    title={!expanded ? label : undefined}
+                    aria-label={label}
+                    className={className}
+                >
+                    {inner}
+                </Link>
+            );
+        }
+        const tabId = isTabId(item.id) ? item.id : null;
+        if (onTabChange && tabId) {
+            return (
+                <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                        onTabChange(tabId);
+                        closeMobileNav();
+                    }}
+                    title={!expanded ? label : undefined}
+                    aria-label={label}
+                    className={className}
+                >
+                    {inner}
+                </button>
+            );
+        }
         return (
             <Link
                 key={item.id}
                 href={navigationPath(item.id)}
-                onClick={() => setMobileNav(false)}
+                onClick={closeMobileNav}
                 title={!expanded ? label : undefined}
                 aria-label={label}
-                className={cn(
-                    'flex w-full items-center rounded-md py-2 text-sm transition-colors',
-                    expanded ? 'gap-3 px-3' : 'justify-center px-2',
-                    active === item.id
-                        ? 'bg-foreground text-background'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                )}
+                className={className}
             >
-                <Icon size={17} aria-hidden="true" />
-                {expanded && <span>{label}</span>}
+                {inner}
             </Link>
         );
     };
@@ -138,22 +196,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (!item) return null;
         const label = t(item.labelKey) || item.id;
         const Icon = item.icon;
+        const className = cn(
+            'flex items-center rounded-lg transition-colors',
+            compact
+                ? 'w-full gap-3 px-4 py-3 text-left'
+                : 'min-w-0 flex-1 flex-col justify-center gap-1 px-1 py-2 text-[10px]',
+            navActive === id ? 'font-semibold text-foreground' : 'text-muted-foreground',
+        );
+        const closeMobileNav = () => setMobileNav(false);
+        const inner = <><Icon size={compact ? 18 : 19} /><span>{label}</span></>;
+
+        if (isRouteNav(id)) {
+            return (
+                <Link key={id} href={navigationPath(id)} onClick={closeMobileNav} className={className} aria-label={label}>
+                    {inner}
+                </Link>
+            );
+        }
+        if (onTabChange && isTabId(id)) {
+            return (
+                <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                        onTabChange(id);
+                        closeMobileNav();
+                    }}
+                    className={className}
+                    aria-label={label}
+                >
+                    {inner}
+                </button>
+            );
+        }
         return (
-            <Link
-                key={id}
-                href={navigationPath(id)}
-                onClick={() => setMobileNav(false)}
-                aria-label={label}
-                className={cn(
-                    'flex items-center rounded-lg transition-colors',
-                    compact
-                        ? 'w-full gap-3 px-4 py-3 text-left'
-                        : 'min-w-0 flex-1 flex-col justify-center gap-1 px-1 py-2 text-[10px]',
-                    active === id ? 'font-semibold text-foreground' : 'text-muted-foreground',
-                )}
-            >
-                <Icon size={compact ? 18 : 19} />
-                <span>{label}</span>
+            <Link key={id} href={navigationPath(id)} onClick={closeMobileNav} className={className} aria-label={label}>
+                {inner}
             </Link>
         );
     };
