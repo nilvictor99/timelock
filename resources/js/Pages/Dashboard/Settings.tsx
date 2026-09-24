@@ -4,6 +4,7 @@ import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTheme } from '@/lib/theme';
 import { useI18n } from '@/lib/i18n';
@@ -377,7 +378,7 @@ export default function Settings() {
         );
     }
 
-    const inputClass = 'mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm';
+    const timeControlClass = 'mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm accent-ring';
     return (
         <DashboardLayout>
             <div className="mx-auto max-w-5xl space-y-6">
@@ -459,9 +460,9 @@ export default function Settings() {
                             <label className="block text-sm font-medium">
                                 {t('timezoneOverride')}
                                 <div className="mt-2 flex gap-2">
-                                    <input
+                                    <Input
                                         list="timezone-options"
-                                        className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                                        className="mt-0 min-w-0 flex-1"
                                         value={timezoneOverride}
                                         onChange={(event) => setTimezoneOverride(event.target.value)}
                                     />
@@ -546,11 +547,11 @@ export default function Settings() {
                                 <div className="mt-2 grid gap-4 sm:grid-cols-2">
                                     <label className="text-sm">
                                         {t('from')}
-                                        <input type="time" className={inputClass} value={quietHoursStart} onChange={(event) => setQuietHoursStart(event.target.value)} />
+                                        <input type="time" className={timeControlClass} value={quietHoursStart} onChange={(event) => setQuietHoursStart(event.target.value)} />
                                     </label>
                                     <label className="text-sm">
                                         {t('to')}
-                                        <input type="time" className={inputClass} value={quietHoursEnd} onChange={(event) => setQuietHoursEnd(event.target.value)} />
+                                        <input type="time" className={timeControlClass} value={quietHoursEnd} onChange={(event) => setQuietHoursEnd(event.target.value)} />
                                     </label>
                                 </div>
                             </div>
@@ -561,12 +562,12 @@ export default function Settings() {
                                 </label>
                                 <label className="text-sm">
                                     {t('volume')}
-                                    <input type="range" className="mt-3 w-full" min="0" max="100" value={notifyVolume} onChange={(event) => setNotifyVolume(Number(event.target.value))} />
+                                        <input type="range" className="mt-3 w-full accent-ring" min="0" max="100" value={notifyVolume} onChange={(event) => setNotifyVolume(Number(event.target.value))} />
                                 </label>
                             </div>
                             <label className="block text-sm font-medium">
                                 {t('notificationVoice')}
-                                <input className={inputClass} value={notificationVoice} placeholder={t('defaultVoice')} onChange={(event) => setNotificationVoice(event.target.value)} />
+                                <Input className="mt-2" value={notificationVoice} placeholder={t('defaultVoice')} onChange={(event) => setNotificationVoice(event.target.value)} />
                             </label>
                             <AutoStatus status={statuses.notificationsEnabled} onRevert={() => revert('notificationsEnabled')} t={t} />
                             <AutoStatus status={statuses.notificationTypes} onRevert={() => revert('notificationTypes')} t={t} />
@@ -590,7 +591,7 @@ export default function Settings() {
                                     <span>{t('moreRandom')}</span>
                                     <input
                                         type="range"
-                                        className="flex-1"
+                                        className="flex-1 accent-ring"
                                         min="0"
                                         max="100"
                                         value={generationPersonalization}
@@ -674,8 +675,8 @@ export default function Settings() {
                                 ) : (
                                     <div className="mt-3 space-y-3 rounded-md border border-danger p-3">
                                         <p className="text-sm">{t('deleteAccountStep')}</p>
-                                        <input className={inputClass} placeholder={t('typeEmail')} value={deleteEmail} onChange={(event) => setDeleteEmail(event.target.value)} />
-                                        <input className={inputClass} placeholder={t('deletionPhrase')} value={deletePhrase} onChange={(event) => setDeletePhrase(event.target.value)} />
+                                        <Input placeholder={t('typeEmail')} value={deleteEmail} onChange={(event) => setDeleteEmail(event.target.value)} />
+                                        <Input placeholder={t('deletionPhrase')} value={deletePhrase} onChange={(event) => setDeletePhrase(event.target.value)} />
                                         <div className="flex gap-2">
                                             <Button
                                                 type="button"
@@ -704,10 +705,10 @@ export default function Settings() {
                             <label className="block text-sm font-medium">
                                 {t('aiApiKey')}
                                 <div className="mt-2 flex gap-2">
-                                    <input
+                                    <Input
                                         type={showAiKey ? 'text' : 'password'}
                                         autoComplete="off"
-                                        className={`${inputClass} mt-0`}
+                                        className="mt-0"
                                         value={aiKey}
                                         onChange={(event) => {
                                             setAiKey(event.target.value);
@@ -760,32 +761,32 @@ export default function Settings() {
                             </label>
                             <label className="block text-sm font-medium">
                                 {t('aiModel')}
-                                <input className={inputClass} value={aiModel} onChange={(event) => setAiModel(event.target.value)} />
+                                <Input className="mt-2" value={aiModel} onChange={(event) => setAiModel(event.target.value)} />
                             </label>
                             <label className="block text-sm font-medium">
                                 {t('aiBaseUrl')}
-                                <input type="url" className={inputClass} value={aiBaseUrl} onChange={(event) => setAiBaseUrl(event.target.value)} />
+                                <Input type="url" className="mt-2" value={aiBaseUrl} onChange={(event) => setAiBaseUrl(event.target.value)} />
                             </label>
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <label className="text-sm font-medium">
                                     {t('aiTemperature')}
-                                    <input
+                                    <Input
                                         type="number"
                                         min="0"
                                         max="2"
                                         step="0.1"
-                                        className={inputClass}
+                                        className="mt-2"
                                         value={aiTemperature}
                                         onChange={(event) => setAiTemperature(Number(event.target.value))}
                                     />
                                 </label>
                                 <label className="text-sm font-medium">
                                     {t('aiMaxTokens')}
-                                    <input
+                                    <Input
                                         type="number"
                                         min="1"
                                         max="8192"
-                                        className={inputClass}
+                                        className="mt-2"
                                         value={aiMaxTokens}
                                         onChange={(event) => setAiMaxTokens(Number(event.target.value))}
                                     />
@@ -809,7 +810,7 @@ export default function Settings() {
                             <p className="text-sm text-muted-foreground">{t('pauseDescription')}</p>
                             <label className="block text-sm font-medium">
                                 {t('pauseReason')}
-                                <input className={inputClass} maxLength={120} value={reason} onChange={(event) => setReason(event.target.value)} />
+                                <Input className="mt-2" maxLength={120} value={reason} onChange={(event) => setReason(event.target.value)} />
                             </label>
                             <Button onClick={() => void togglePause()}>
                                 {user.pauseActive ? (

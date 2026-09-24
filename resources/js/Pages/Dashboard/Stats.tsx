@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { CalendarDays, CheckCircle2, Clock3, Download, Flame, Gift, Trophy } from 'lucide-react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
+import { CHART_COLORS, chartVar } from '@/lib/charts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -43,7 +44,7 @@ type Bootstrap = {
 };
 type RangePreset = 'today' | 'week' | 'month' | 'custom';
 
-const colors = ['#2563eb', '#16a34a', '#ea580c', '#9333ea', '#0891b2', '#db2777', '#ca8a04'];
+const colors = CHART_COLORS;
 const weekdayKeys = ['sunShort', 'monShort', 'tueShort', 'wedShort', 'thuShort', 'friShort', 'satShort'] as const;
 
 function endOfDay(date: Date) {
@@ -409,7 +410,7 @@ export default function Stats() {
                                         <XAxis dataKey="date" />
                                         <YAxis />
                                         <Tooltip formatter={(value) => formatDuration(Number(value ?? 0), t)} />
-                                        <Line type="monotone" dataKey="minutes" stroke="#2563eb" strokeWidth={2} dot={false} />
+                                        <Line type="monotone" dataKey="minutes" stroke={chartVar(1)} strokeWidth={2} dot={false} />
                                     </LineChart>
                                 </ResponsiveContainer>
                             </ChartCard>
@@ -420,7 +421,7 @@ export default function Stats() {
                                         <XAxis type="number" allowDecimals={false} />
                                         <YAxis type="category" dataKey="name" width={95} tick={{ fontSize: 11 }} />
                                         <Tooltip />
-                                        <Bar dataKey="count" fill="#16a34a" radius={[0, 4, 4, 0]} />
+                                        <Bar dataKey="count" fill={chartVar(2)} radius={[0, 4, 4, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </ChartCard>
@@ -431,7 +432,7 @@ export default function Stats() {
                                         <XAxis dataKey="day" />
                                         <YAxis domain={[0, 100]} />
                                         <Tooltip formatter={(value) => `${value}%`} />
-                                        <Bar dataKey="compliance" fill="#9333ea" radius={[4, 4, 0, 0]} />
+                                        <Bar dataKey="compliance" fill={chartVar(4)} radius={[4, 4, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </ChartCard>
@@ -470,7 +471,7 @@ export default function Stats() {
                                                         <XAxis dataKey="date" hide />
                                                         <YAxis allowDecimals={false} width={24} />
                                                         <Tooltip />
-                                                        <Bar dataKey="count" fill="#ea580c" radius={[4, 4, 0, 0]} />
+                                                        <Bar dataKey="count" fill={chartVar(3)} radius={[4, 4, 0, 0]} />
                                                     </BarChart>
                                                 </ResponsiveContainer>
                                             </div>
