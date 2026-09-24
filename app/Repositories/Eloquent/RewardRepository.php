@@ -4,6 +4,7 @@ namespace App\Repositories\Eloquent;
 
 use App\Models\Reward;
 use App\Repositories\Contracts\RewardRepositoryInterface;
+use DateTimeInterface;
 use Illuminate\Support\Collection;
 
 class RewardRepository implements RewardRepositoryInterface
@@ -11,6 +12,14 @@ class RewardRepository implements RewardRepositoryInterface
     public function findByUser(string $userId): Collection
     {
         return Reward::where('user_id', $userId)->orderBy('cost')->get();
+    }
+
+    public function findByUserRedeemedBetween(string $userId, DateTimeInterface $from, DateTimeInterface $to): Collection
+    {
+        return Reward::where('user_id', $userId)
+            ->whereBetween('redeemed_at', [$from, $to])
+            ->orderBy('redeemed_at')
+            ->get();
     }
 
     public function findByIdAndUser(string $id, string $userId): ?Reward

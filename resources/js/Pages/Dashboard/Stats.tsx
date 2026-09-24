@@ -1,51 +1,23 @@
 import * as React from 'react';
-import {
-    Bar,
-    BarChart,
-    CartesianGrid,
-    Cell,
-    Line,
-    LineChart,
-    Pie,
-    PieChart,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis,
-} from 'recharts';
-import { CalendarDays, CheckCircle2, Clock3, Download, Flame, Gift, Trophy } from 'lucide-react';
+import { CalendarDays, Download, RotateCcw } from 'lucide-react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { CHART_COLORS, chartVar } from '@/lib/charts';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { cn, minutesBetween, toDateKey } from '@/lib/utils';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Empty } from '@/Components/dashboard/Empty';
+import { ChartCard } from '@/Components/stats/ChartCard';
+import { StatsMetrics } from '@/Components/stats/StatsMetrics';
+import { StatsFilters, type RangePreset } from '@/Components/stats/StatsFilters';
+import { CategoryPie } from '@/Components/stats/CategoryPie';
+import { DailyLine } from '@/Components/stats/DailyLine';
+import { TopActivitiesBar } from '@/Components/stats/TopActivitiesBar';
+import { WeekdayComplianceBar } from '@/Components/stats/WeekdayComplianceBar';
+import { RewardsPanel } from '@/Components/stats/RewardsPanel';
+import { StreakPanel } from '@/Components/stats/StreakPanel';
+import type { StatsSummary } from '@/Components/stats/types';
 import { dateRangeSchema } from '@/lib/validations';
 import { useI18n } from '@/lib/i18n';
 import { apiGet } from '@/lib/api';
-
-type Category = { id: string; name: string; color: string };
-type Activity = {
-    id: string;
-    title: string;
-    startAt: string;
-    endAt: string;
-    status: string;
-    points: number;
-    category?: Category | null;
-};
-type Reward = { id: string; title: string; cost: number; redeemedAt?: string | null };
-type Bootstrap = {
-    activities: Activity[];
-    categories: Category[];
-    rewards: Reward[];
-    user: { name?: string | null; currentStreak?: number; bestStreak?: number };
-};
-type RangePreset = 'today' | 'week' | 'month' | 'custom';
-
-const colors = CHART_COLORS;
-const weekdayKeys = ['sunShort', 'monShort', 'tueShort', 'wedShort', 'thuShort', 'friShort', 'satShort'] as const;
 
 function endOfDay(date: Date) {
     const result = new Date(date);
@@ -60,85 +32,26 @@ function startOfWeek(date: Date) {
     return result;
 }
 
-function dateFromKey(value: string, end = false) {
-    const date = new Date(`${value}T00:00:00`);
-    return end ? endOfDay(date) : date;
-}
-
-function localKey(date: Date) {
-    return toDateKey(date);
-}
-
-function formatDuration(minutes: number, t: (key: string) => string) {
-    const hours = Math.floor(minutes / 60);
-    const rest = Math.round(minutes % 60);
-    if (!hours) return `${rest} ${t('statsMinutes')}`;
-    return `${hours} ${t('statsHours')} ${rest} ${t('statsMinutes')}`;
-}
-
-function Metric({ title, value, icon }: { title: string; value: string; icon: React.ReactNode }) {
-    return (
-        <Card>
-            <CardContent className="p-4">
-                <div className="mb-3 flex items-center justify-between text-xs uppercase tracking-wide text-muted-foreground">
-                    <span>{title}</span>
-                    {icon}
-                </div>
-                <div className="text-2xl font-bold">{value}</div>
-            </CardContent>
-        </Card>
-    );
-}
-
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="h-64 w-full" role="img" aria-label={title}>
-                    {children}
-                </div>
-            </CardContent>
-        </Card>
-    );
+function dateKey(date: Date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 export default function Stats() {
-    const { t, locale, setLocale } = useI18n();
-    const [data, setData] = React.useState<Bootstrap | null>(null);
+    const { t, locale } = useI18n();
+    const [summary, setSummary] = React.useState<StatsSummary | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState('');
     const [preset, setPreset] = React.useState<RangePreset>('week');
-    const [customFrom, setCustomFrom] = React.useState(localKey(new Date()));
-    const [customTo, setCustomTo] = React.useState(localKey(new Date()));
+    const [customFrom, setCustomFrom] = React.useState(dateKey(new Date()));
+    const [customTo, setCustomTo] = React.useState(dateKey(new Date()));
     const [activitySearch, setActivitySearch] = React.useState('');
     const [selectedActivities, setSelectedActivities] = React.useState<string[]>([]);
     const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]);
 
-    React.useEffect(() => {
-        let cancelled = false;
-        apiGet<Bootstrap>('/api/bootstrap')
-            .then((result) => {
-                if (cancelled) return;
-                setData(result);
-                if (result.user?.currentStreak !== undefined && result.user) {
-                    if ((result.user as { language?: string }).language === 'en') setLocale('en');
-                }
-            })
-            .catch((reason: unknown) => {
-                if (!cancelled) setError(reason instanceof Error ? reason.message : t('statsError'));
-            })
-            .finally(() => {
-                if (!cancelled) setLoading(false);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [setLocale, t]);
-
-    const range = React.useMemo(() => {
+    const { from, to } = React.useMemo(() => {
         const now = new Date();
         if (preset === 'today') return { from: new Date(now.setHours(0, 0, 0, 0)), to: endOfDay(new Date()) };
         if (preset === 'week') return { from: startOfWeek(now), to: endOfDay(new Date()) };
@@ -148,140 +61,48 @@ export default function Stats() {
             const today = new Date();
             return { from: new Date(today.setHours(0, 0, 0, 0)), to: endOfDay(new Date()) };
         }
-        const from = dateFromKey(parsed.data.from);
-        const to = dateFromKey(parsed.data.to, true);
-        return from <= to ? { from, to } : { from: to, to: endOfDay(from) };
+        const start = new Date(`${parsed.data.from}T00:00:00`);
+        const end = new Date(`${parsed.data.to}T00:00:00`);
+        return start <= end ? { from: start, to: endOfDay(end) } : { from: end, to: endOfDay(start) };
     }, [customFrom, customTo, preset]);
 
-    const filteredActivities = React.useMemo(() => {
-        if (!data) return [];
-        return data.activities.filter((activity) => {
-            const start = new Date(activity.startAt);
-            const categoryId = activity.category?.id ?? '';
-            return (
-                start >= range.from &&
-                start <= range.to &&
-                (!selectedActivities.length || selectedActivities.includes(activity.id)) &&
-                (!selectedCategories.length || selectedCategories.includes(categoryId))
-            );
-        });
-    }, [data, range, selectedActivities, selectedCategories]);
+    const [reloadKey, setReloadKey] = React.useState(0);
+    React.useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
 
-    const filteredRewards = React.useMemo(() => {
-        if (!data) return [];
-        return data.rewards.filter(
-            (reward) => reward.redeemedAt && new Date(reward.redeemedAt) >= range.from && new Date(reward.redeemedAt) <= range.to,
-        );
-    }, [data, range]);
+        const params = new URLSearchParams({ from: dateKey(from), to: dateKey(to) });
+        if (selectedActivities.length) params.set('activities', selectedActivities.join(','));
+        if (selectedCategories.length) params.set('categories', selectedCategories.join(','));
 
-    const stats = React.useMemo(() => {
-        const categoryMap = new Map<string, { name: string; minutes: number; color: string }>();
-        const dailyMap = new Map<string, { date: string; minutes: number; completed: number; total: number }>();
-        const activityMap = new Map<string, number>();
-        const weekdayMap = weekdayKeys.map((key) => ({ day: t(key), completed: 0, total: 0 }));
-        for (const activity of filteredActivities) {
-            const minutes = minutesBetween(activity.startAt, activity.endAt);
-            const category = activity.category?.name ?? t('statsNoCategory');
-            const categoryId = activity.category?.id ?? 'none';
-            const previousCategory = categoryMap.get(categoryId);
-            categoryMap.set(categoryId, {
-                name: category,
-                minutes: (previousCategory?.minutes ?? 0) + minutes,
-                color: activity.category?.color ?? colors[categoryMap.size % colors.length],
-            });
-            const date = localKey(new Date(activity.startAt));
-            const previousDay = dailyMap.get(date) ?? { date, minutes: 0, completed: 0, total: 0 };
-            dailyMap.set(date, {
-                date,
-                minutes: previousDay.minutes + minutes,
-                completed: previousDay.completed + (activity.status === 'COMPLETED' ? 1 : 0),
-                total: previousDay.total + 1,
-            });
-            activityMap.set(activity.title, (activityMap.get(activity.title) ?? 0) + 1);
-            const day = new Date(activity.startAt).getDay();
-            weekdayMap[day].total += 1;
-            if (activity.status === 'COMPLETED') weekdayMap[day].completed += 1;
-        }
-        const days = [...dailyMap.values()].sort((a, b) => a.date.localeCompare(b.date));
-        const completedDates = new Set(filteredActivities.filter((a) => a.status === 'COMPLETED').map((a) => localKey(new Date(a.startAt))));
-        const allDates = [...new Set(filteredActivities.map((a) => localKey(new Date(a.startAt))))].sort();
-        let longest = 0;
-        let run = 0;
-        let previous: Date | null = null;
-        for (const value of allDates) {
-            const current = dateFromKey(value);
-            if (completedDates.has(value) && previous && current.getTime() - previous.getTime() === 86_400_000) run += 1;
-            else run = completedDates.has(value) ? 1 : 0;
-            longest = Math.max(longest, run);
-            previous = current;
-        }
-        let current = 0;
-        const cursor = new Date();
-        cursor.setHours(0, 0, 0, 0);
-        while (completedDates.has(localKey(cursor))) {
-            current += 1;
-            cursor.setDate(cursor.getDate() - 1);
-        }
-        const perfectDays = days.filter((day) => day.total > 0 && day.completed === day.total).length;
-        const streakHistory: { date: string; completed: boolean; total: number }[] = [];
-        const historyCursor = new Date(range.from);
-        historyCursor.setHours(0, 0, 0, 0);
-        const historyEnd = new Date(range.to);
-        historyEnd.setHours(0, 0, 0, 0);
-        while (historyCursor <= historyEnd && streakHistory.length < 370) {
-            const date = localKey(historyCursor);
-            const day = dailyMap.get(date);
-            streakHistory.push({ date, completed: Boolean(day?.total && day.completed === day.total), total: day?.total ?? 0 });
-            historyCursor.setDate(historyCursor.getDate() + 1);
-        }
-        return {
-            totalMinutes: filteredActivities.reduce((sum, item) => sum + minutesBetween(item.startAt, item.endAt), 0),
-            completed: filteredActivities.filter((item) => item.status === 'COMPLETED').length,
-            points: filteredActivities.filter((item) => item.status === 'COMPLETED').reduce((sum, item) => sum + item.points, 0),
-            category: [...categoryMap.values()].sort((a, b) => b.minutes - a.minutes),
-            daily: days,
-            topActivities: [...activityMap.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10),
-            weekday: weekdayMap.map((item) => ({ ...item, compliance: item.total ? Math.round((item.completed / item.total) * 100) : 0 })),
-            current: Math.max(current, data?.user?.currentStreak ?? 0),
-            longest: Math.max(longest, data?.user?.bestStreak ?? 0),
-            perfectDays,
-            streakHistory,
+        const timer = setTimeout(() => {
+            apiGet<StatsSummary>(`/api/stats/summary?${params.toString()}`)
+                .then((result) => {
+                    if (cancelled) return;
+                    setSummary(result);
+                    setError('');
+                })
+                .catch((reason: unknown) => {
+                    if (!cancelled) setError(reason instanceof Error ? reason.message : t('statsError'));
+                })
+                .finally(() => {
+                    if (!cancelled) setLoading(false);
+                });
+        }, 150);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
         };
-    }, [data, filteredActivities, range, t]);
+    }, [from, to, selectedActivities, selectedCategories, reloadKey, t]);
 
-    const rewardTrend = React.useMemo(() => {
-        const grouped = new Map<string, number>();
-        for (const reward of filteredRewards) {
-            if (!reward.redeemedAt) continue;
-            const date = new Date(reward.redeemedAt);
-            const keyDate = preset === 'month' ? new Date(date.getFullYear(), date.getMonth(), 1) : startOfWeek(date);
-            const key = localKey(keyDate);
-            grouped.set(key, (grouped.get(key) ?? 0) + 1);
-        }
-        return [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, count]) => ({ date, count }));
-    }, [filteredRewards, preset]);
-
-    const visibleActivities = React.useMemo(
-        () => data?.activities.filter((activity) => activity.title.toLowerCase().includes(activitySearch.toLowerCase())) ?? [],
-        [activitySearch, data],
-    );
     const toggle = (value: string, values: string[], setValues: (next: string[]) => void) =>
         setValues(values.includes(value) ? values.filter((item) => item !== value) : [...values, value]);
-    const exportQuery = `format=csv&from=${encodeURIComponent(localKey(range.from))}&to=${encodeURIComponent(localKey(range.to))}`;
-    const hasData = filteredActivities.length > 0;
 
-    if (loading)
-        return (
-            <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">{t('statsLoading')}</div>
-        );
-    if (error || !data)
-        return (
-            <div className="flex min-h-screen items-center justify-center p-6">
-                <Card className="max-w-lg">
-                    <CardContent className="p-6 text-sm text-danger">{error || t('statsError')}</CardContent>
-                </Card>
-            </div>
-        );
+    const hasData = Boolean(
+        summary && (summary.kpis.completed > 0 || summary.kpis.rewardsRedeemed > 0 || summary.category.length > 0),
+    );
+    const exportQuery = `format=csv&from=${encodeURIComponent(dateKey(from))}&to=${encodeURIComponent(dateKey(to))}`;
 
     return (
         <DashboardLayout>
@@ -290,92 +111,46 @@ export default function Stats() {
                     <h2 className="text-3xl font-bold tracking-tight">{t('statsTitle')}</h2>
                     <p className="mt-1 text-muted-foreground">{t('statsSubtitle')}</p>
                 </div>
-                <Card>
-                    <CardContent className="grid gap-4 p-4 lg:grid-cols-[1.2fr_1fr_1fr]">
-                        <div>
-                            <label className="mb-2 block text-sm font-medium">{t('statsDateRange')}</label>
-                            <div className="flex flex-wrap gap-2">
-                                {(['today', 'week', 'month', 'custom'] as RangePreset[]).map((value) => (
-                                    <button
-                                        key={value}
-                                        onClick={() => setPreset(value)}
-                                        className={cn(
-                                            'rounded-md border px-3 py-2 text-sm',
-                                            preset === value
-                                                ? 'border-foreground bg-foreground text-background'
-                                                : 'border-border text-muted-foreground',
-                                        )}
-                                    >
-                                        {t(
-                                            value === 'today'
-                                                ? 'statsToday'
-                                                : value === 'week'
-                                                  ? 'statsThisWeek'
-                                                  : value === 'month'
-                                                    ? 'statsThisMonth'
-                                                    : 'statsCustom',
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        {preset === 'custom' && (
-                            <div className="grid grid-cols-2 gap-2">
-                                <label className="text-sm">
-                                    {t('from')}
-                                    <Input className="mt-2" type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} />
-                                </label>
-                                <label className="text-sm">
-                                    {t('to')}
-                                    <Input className="mt-2" type="date" value={customTo} onChange={(event) => setCustomTo(event.target.value)} />
-                                </label>
-                            </div>
-                        )}
-                        <div>
-                            <label className="mb-2 block text-sm font-medium">{t('statsActivities')}</label>
-                            <Input placeholder={t('statsSearchActivities')} value={activitySearch} onChange={(event) => setActivitySearch(event.target.value)} />
-                            <div className="mt-2 flex max-h-20 flex-wrap gap-2 overflow-auto">
-                                {visibleActivities.slice(0, 12).map((activity) => (
-                                    <label key={activity.id} className="flex items-center gap-1 text-xs">
-                                        <Checkbox
-                                            checked={selectedActivities.includes(activity.id)}
-                                            onCheckedChange={() => toggle(activity.id, selectedActivities, setSelectedActivities)}
-                                        />
-                                        {activity.title}
-                                    </label>
-                                ))}
-                                {data.activities.length > 12 && (
-                                    <span className="text-xs text-muted-foreground">+{data.activities.length - 12}</span>
-                                )}
-                            </div>
-                        </div>
-                        <div>
-                            <label className="mb-2 block text-sm font-medium">{t('statsCategories')}</label>
-                            <div className="flex max-h-24 flex-wrap gap-2 overflow-auto">
-                                {data.categories.map((category) => (
-                                    <label key={category.id} className="flex items-center gap-1 text-sm">
-                                        <Checkbox
-                                            checked={selectedCategories.includes(category.id)}
-                                            onCheckedChange={() => toggle(category.id, selectedCategories, setSelectedCategories)}
-                                        />
-                                        {category.name}
-                                    </label>
-                                ))}
-                            </div>
-                            <button
-                                className="mt-2 text-xs text-muted-foreground underline"
-                                onClick={() => {
-                                    setSelectedActivities([]);
-                                    setSelectedCategories([]);
-                                }}
-                            >
-                                {t('statsAll')}
-                            </button>
-                        </div>
-                    </CardContent>
-                </Card>
 
-                {!hasData ? (
+                <StatsFilters
+                    options={summary?.options ?? null}
+                    preset={preset}
+                    customFrom={customFrom}
+                    customTo={customTo}
+                    activitySearch={activitySearch}
+                    selectedActivities={selectedActivities}
+                    selectedCategories={selectedCategories}
+                    onPresetChange={setPreset}
+                    onCustomFromChange={setCustomFrom}
+                    onCustomToChange={setCustomTo}
+                    onActivitySearchChange={setActivitySearch}
+                    onActivityToggle={(id) => toggle(id, selectedActivities, setSelectedActivities)}
+                    onCategoryToggle={(id) => toggle(id, selectedCategories, setSelectedCategories)}
+                    onClearFilters={() => {
+                        setSelectedActivities([]);
+                        setSelectedCategories([]);
+                    }}
+                    t={t}
+                />
+
+                {error && !summary ? (
+                    <Card>
+                        <CardContent className="flex flex-col items-center gap-4 p-12 text-center">
+                            <p className="text-sm text-danger">{error || t('statsError')}</p>
+                            <Button variant="outline" onClick={() => setReloadKey((key) => key + 1)}>
+                                <RotateCcw size={16} />
+                                {t('statsRetry')}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                ) : !summary ? (
+                    <div className="grid gap-6 lg:grid-cols-2">
+                        <StatsMetrics summary={null} t={t} />
+                        {Array.from({ length: 4 }, (_, index) => (
+                            <Skeleton key={index} className="h-80 w-full" />
+                        ))}
+                    </div>
+                ) : !hasData ? (
                     <Card>
                         <CardContent className="p-12 text-center">
                             <CalendarDays className="mx-auto mb-4 text-muted-foreground" size={36} />
@@ -384,139 +159,26 @@ export default function Stats() {
                     </Card>
                 ) : (
                     <>
-                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                            <Metric title={t('statsTotalTime')} value={formatDuration(stats.totalMinutes, t)} icon={<Clock3 className="text-info" size={18} />} />
-                            <Metric title={t('statsCompletedActivities')} value={String(stats.completed)} icon={<CheckCircle2 className="text-success" size={18} />} />
-                            <Metric title={t('statsPointsEarned')} value={String(stats.points)} icon={<Trophy className="text-warning" size={18} />} />
-                            <Metric title={t('statsRewardsRedeemed')} value={String(filteredRewards.length)} icon={<Gift className="text-warning" size={18} />} />
-                        </div>
+                        <StatsMetrics summary={summary} loading={loading} t={t} />
                         <div className="grid gap-6 lg:grid-cols-2">
-                            <ChartCard title={t('statsTimeByCategory')}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={stats.category} dataKey="minutes" nameKey="name" outerRadius={90} label>
-                                            {stats.category.map((item) => (
-                                                <Cell key={item.name} fill={item.color} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip formatter={(value) => formatDuration(Number(value ?? 0), t)} />
-                                    </PieChart>
-                                </ResponsiveContainer>
+                            <ChartCard title={t('statsTimeByCategory')} loading={loading}>
+                                <CategoryPie data={summary.category} t={t} />
                             </ChartCard>
-                            <ChartCard title={t('statsDailyEvolution')}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={stats.daily}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="date" />
-                                        <YAxis />
-                                        <Tooltip formatter={(value) => formatDuration(Number(value ?? 0), t)} />
-                                        <Line type="monotone" dataKey="minutes" stroke={chartVar(1)} strokeWidth={2} dot={false} />
-                                    </LineChart>
-                                </ResponsiveContainer>
+                            <ChartCard title={t('statsDailyEvolution')} loading={loading}>
+                                <DailyLine data={summary.daily} t={t} />
                             </ChartCard>
-                            <ChartCard title={t('statsTopActivities')}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={stats.topActivities} layout="vertical" margin={{ left: 20 }}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis type="number" allowDecimals={false} />
-                                        <YAxis type="category" dataKey="name" width={95} tick={{ fontSize: 11 }} />
-                                        <Tooltip />
-                                        <Bar dataKey="count" fill={chartVar(2)} radius={[0, 4, 4, 0]} />
-                                    </BarChart>
-                                </ResponsiveContainer>
+                            <ChartCard title={t('statsTopActivities')} loading={loading}>
+                                <TopActivitiesBar data={summary.topActivities} />
                             </ChartCard>
-                            <ChartCard title={t('statsComplianceByDay')}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={stats.weekday}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="day" />
-                                        <YAxis domain={[0, 100]} />
-                                        <Tooltip formatter={(value) => `${value}%`} />
-                                        <Bar dataKey="compliance" fill={chartVar(4)} radius={[4, 4, 0, 0]} />
-                                    </BarChart>
-                                </ResponsiveContainer>
+                            <ChartCard title={t('statsComplianceByDay')} loading={loading}>
+                                <WeekdayComplianceBar data={summary.weekday} t={t} />
                             </ChartCard>
                         </div>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>{t('statsRedeemedRewards')}</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="mb-4 flex items-center justify-between text-sm">
-                                    <span className="text-muted-foreground">{t('statsPointsSpent')}</span>
-                                    <strong>
-                                        {filteredRewards.reduce((sum, reward) => sum + reward.cost, 0)} {t('statsPointsAbbrev')}
-                                    </strong>
-                                </div>
-                                {filteredRewards.length ? (
-                                    <div className="grid gap-5 lg:grid-cols-[1fr_220px]">
-                                        <div className="space-y-2">
-                                            {filteredRewards.map((reward) => (
-                                                <div key={reward.id} className="flex items-center justify-between rounded-lg border border-border p-3 text-sm">
-                                                    <span className="flex items-center gap-2">
-                                                        <Gift size={16} className="text-warning" />
-                                                        {reward.title}
-                                                    </span>
-                                                    <span className="text-muted-foreground">
-                                                        {reward.redeemedAt ? new Date(reward.redeemedAt).toLocaleDateString(locale) : ''} ·{' '}
-                                                        {reward.cost} {t('statsPointsAbbrev')}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        {rewardTrend.length > 0 && (
-                                            <div className="h-32">
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <BarChart data={rewardTrend}>
-                                                        <XAxis dataKey="date" hide />
-                                                        <YAxis allowDecimals={false} width={24} />
-                                                        <Tooltip />
-                                                        <Bar dataKey="count" fill={chartVar(3)} radius={[4, 4, 0, 0]} />
-                                                    </BarChart>
-                                                </ResponsiveContainer>
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">{t('statsNoRewards')}</p>
-                                )}
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>{t('statsChains')}</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid gap-4 sm:grid-cols-3">
-                                    <div className="rounded-lg bg-muted p-4">
-                                        <Flame className="mb-2 text-warning" size={20} />
-                                        <p className="text-xs text-muted-foreground">{t('statsCurrentStreak')}</p>
-                                        <strong className="text-2xl">{stats.current}</strong>
-                                    </div>
-                                    <div className="rounded-lg bg-muted p-4">
-                                        <Trophy className="mb-2 text-warning" size={20} />
-                                        <p className="text-xs text-muted-foreground">{t('statsLongestStreak')}</p>
-                                        <strong className="text-2xl">{stats.longest}</strong>
-                                    </div>
-                                    <div className="rounded-lg bg-muted p-4">
-                                        <CheckCircle2 className="mb-2 text-success" size={20} />
-                                        <p className="text-xs text-muted-foreground">{t('statsPerfectDays')}</p>
-                                        <strong className="text-2xl">{stats.perfectDays}</strong>
-                                    </div>
-                                </div>
-                                <div className="mt-5 flex flex-wrap gap-1" aria-label={t('statsChains')}>
-                                    {stats.streakHistory.map((day) => (
-                                        <span
-                                            key={day.date}
-                                            title={`${day.date}: ${day.total}`}
-                                            className={cn('h-4 w-4 rounded-sm border border-border', day.completed ? 'bg-success' : day.total ? 'bg-warning/50' : 'bg-muted')}
-                                        />
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <RewardsPanel rewards={summary.rewards} trend={summary.rewardTrend} loading={loading} locale={locale} t={t} />
+                        <StreakPanel streak={summary.streak} loading={loading} t={t} />
                     </>
                 )}
+
                 <div className="flex flex-wrap gap-2">
                     <Button variant="outline" onClick={() => (window.location.href = `/api/export?${exportQuery}`)}>
                         <Download size={16} />

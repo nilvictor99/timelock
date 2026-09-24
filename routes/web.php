@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SuggestionController;
+use App\Http\Controllers\StatsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -50,6 +51,7 @@ Route::middleware('auth.session')->group(function () {
     Route::get('/dashboard/stats', fn () => Inertia::render('Dashboard/Stats'))->name('dashboard.stats');
 
     Route::get('/api/bootstrap', [DashboardController::class, 'bootstrap'])->name('api.bootstrap');
+    Route::get('/api/stats/summary', [StatsController::class, 'summary'])->name('api.stats.summary');
     Route::post('/api/bootstrap', [DashboardController::class, 'store']);
     Route::patch('/api/bootstrap', [DashboardController::class, 'patchActivity']);
     Route::delete('/api/bootstrap', [DashboardController::class, 'destroy']);
