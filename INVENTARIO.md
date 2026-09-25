@@ -97,3 +97,11 @@ react 18.3, zod, bcryptjs, date-fns, recharts, qrcode, html5-qrcode, jspdf, luci
 
 ### Pendiente
 - Verificación visual manual foto a foto con las pantallas Next.js (checklist 21.3) — opcional, el smoke end-to-end ya cubre el flujo crítico
+### Estado (Normalización del sistema de diseño — Spec Kit, 2026-09-24)
+Plan de mejora estética dirigido con Spec Kit (specs/001-003, artefactos spec/plan/tasks por feature; constitution en .specify/memory/):
+
+- [x] **F1 design-system**: tokens `--chart-1..7` light/dark con contraste AA (tabla en `.specify/memory/design-tokens-charts.md`); `lib/charts.ts` (`CHART_COLORS`/`chartVar`); Stats sin hex inline; primitivas nuevas skeleton/tabs/tooltip/separator/dropdown-menu; Settings 11 inputs → `Input` (solo time/range nativos documentados); convención de componentes en `AGENTS.md`
+- [x] **F2 stats-redesign**: agregación al servidor — `StatsService` + `StatsController GET /api/stats/summary` (rango+filtros, options incluidos), `RewardRepository::findByUserRedeemedBetween`; `Components/stats/*` (9 componentes con Skeleton/empty); `Stats.tsx` 532→195 líneas solo orquestación; 14 tests nuevos de paridad+API
+- [x] **F3 modulos-rutas**: Activities/Suggestions/Rewards/Calendar/Streak/Export como rutas Inertia propias (`/dashboard/<slug>`, redirect legacy `?tab=`); DashboardLayout con `<Link>` puro y active por pathname; Index solo Home; 2 tests nuevos de rutas
+- [x] Suite Pest 109/109 (465 aserciones) · `npm run build` OK · tsc OK · smoke de rutas y API contra el contenedor
+- [ ] Validación visual manual light/dark en navegador (pendiente; protocolo kitty no disponible en el terminal actual). Pasos: login `demo@timelock.dev`, recorrer `/dashboard/*`, alternar tema con el toggle del sidebar
