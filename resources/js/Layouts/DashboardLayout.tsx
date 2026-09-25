@@ -20,6 +20,7 @@ import {
     X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { LiveClock } from '@/Components/dashboard/LiveClock';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
@@ -242,6 +243,7 @@ export default function DashboardLayout({
                         </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                        <LiveClock className="hidden sm:flex" />
                         <div className="hidden items-center gap-2 rounded-full border border-border px-3 py-1.5 text-sm sm:flex">
                             <Trophy size={15} className="text-warning" /> {user?.points ?? 0} pts
                         </div>

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { TimePicker } from '@/components/ui/time-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTheme } from '@/lib/theme';
 import { useI18n } from '@/lib/i18n';
@@ -378,7 +379,6 @@ export default function Settings() {
         );
     }
 
-    const timeControlClass = 'mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm accent-ring';
     return (
         <DashboardLayout>
             <div className="mx-auto max-w-5xl space-y-6">
@@ -547,11 +547,11 @@ export default function Settings() {
                                 <div className="mt-2 grid gap-4 sm:grid-cols-2">
                                     <label className="text-sm">
                                         {t('from')}
-                                        <input type="time" className={timeControlClass} value={quietHoursStart} onChange={(event) => setQuietHoursStart(event.target.value)} />
+                                        <TimePicker className="mt-2" value={quietHoursStart} onChange={setQuietHoursStart} />
                                     </label>
                                     <label className="text-sm">
                                         {t('to')}
-                                        <input type="time" className={timeControlClass} value={quietHoursEnd} onChange={(event) => setQuietHoursEnd(event.target.value)} />
+                                        <TimePicker className="mt-2" value={quietHoursEnd} onChange={setQuietHoursEnd} />
                                     </label>
                                 </div>
                             </div>

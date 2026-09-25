@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
+import { TimePicker } from '@/components/ui/time-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/lib/i18n';
@@ -464,7 +466,7 @@ export default function Profile() {
                                 <div className="grid gap-4 md:grid-cols-2">
                                     <label className="text-sm font-medium">
                                         {t('birthDate')}
-                                        <Input className="mt-2" type="date" value={form.birthDate} onChange={(event) => setField('birthDate', event.target.value)} />
+                                        <DatePicker className="mt-2" value={form.birthDate} onChange={(value) => setField('birthDate', value)} />
                                     </label>
                                     <label className="text-sm font-medium">
                                         {t('age')}
@@ -772,11 +774,11 @@ export default function Profile() {
                     <div className="grid gap-4 md:grid-cols-3">
                         <label className="text-sm font-medium">
                             {t('workStudyStart')}
-                            <Input className="mt-2" type="time" value={form.workStudyStart} onChange={(event) => setField('workStudyStart', event.target.value)} />
+                            <TimePicker className="mt-2" value={form.workStudyStart} onChange={(value) => setField('workStudyStart', value)} />
                         </label>
                         <label className="text-sm font-medium">
                             {t('workStudyEnd')}
-                            <Input className="mt-2" type="time" value={form.workStudyEnd} onChange={(event) => setField('workStudyEnd', event.target.value)} />
+                            <TimePicker className="mt-2" value={form.workStudyEnd} onChange={(value) => setField('workStudyEnd', value)} />
                         </label>
                         <label className="text-sm font-medium">
                             {t('dailyMinutes')}

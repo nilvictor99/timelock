@@ -105,3 +105,10 @@ Plan de mejora estética dirigido con Spec Kit (specs/001-003, artefactos spec/p
 - [x] **F3 modulos-rutas**: Activities/Suggestions/Rewards/Calendar/Streak/Export como rutas Inertia propias (`/dashboard/<slug>`, redirect legacy `?tab=`); DashboardLayout con `<Link>` puro y active por pathname; Index solo Home; 2 tests nuevos de rutas
 - [x] Suite Pest 109/109 (465 aserciones) · `npm run build` OK · tsc OK · smoke de rutas y API contra el contenedor
 - [ ] Validación visual manual light/dark en navegador (pendiente; protocolo kitty no disponible en el terminal actual). Pasos: login `demo@timelock.dev`, recorrer `/dashboard/*`, alternar tema con el toggle del sidebar
+
+### Estado (Sincronización horaria + pickers, 2026-09-25)
+- [x] **Fix desfase de fecha/hora**: `config/database.php` pgsql `'timezone' => APP_TIMEZONE` (Postgres interpreta wall-clock en el TZ de la app — antes UTC); serialización naive `Y-m-d\TH:i:s` en SerializesDomain/StatsService/SuggestionController (el navegador ya no desplaza días por offset); calendario e Index matchean por columna `date`/hoy local del cliente. Con `APP_TIMEZONE=America/Lima` los tests QR (TTL 10 min) vuelven a verde
+- [x] **LiveClock**: reloj HH:mm:ss en vivo en el header (antes del badge de puntos) con date-fns + fecha corta localizada es/en (react-live-clock descartado: incompat React 19)
+- [x] **DatePicker/TimePicker** (`@/components/ui/{date-picker,time-picker}`): patrón reui.io "Calendar with date picker" (shadcn calendar + Popover, react-day-picker); aplicados en Stats (from/to), Profile (nacimiento, horario), ActivityForm (inicio/fin), Settings (horario silencio), Activities (filtro). Eliminado el último input date/time nativo
+- [x] **Stats simplificado**: presets hoy/semana/mes eliminados; solo los dos DatePickers de rango con default hoy
+- [x] Suite 109/109 (465 aserciones) con Lima activo · build OK · tsc OK

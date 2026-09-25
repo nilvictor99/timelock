@@ -61,7 +61,7 @@ class StatsService
                 'id' => $reward->id,
                 'title' => $reward->title,
                 'cost' => $reward->cost,
-                'redeemedAt' => $reward->redeemed_at?->toIso8601String(),
+                'redeemedAt' => $reward->redeemed_at?->format('Y-m-d\\TH:i:s'),
             ])->values()->all(),
             'options' => [
                 'activities' => $this->activities->findByUser($userId)

@@ -64,8 +64,8 @@ class SuggestionController extends Controller
             'title' => $a->title,
             'category' => $a->relationLoaded('category') && $a->category !== null ? $a->category->name : null,
             'status' => $a->status,
-            'startAt' => $a->start_at?->toIso8601String(),
-            'endAt' => $a->end_at?->toIso8601String(),
+            'startAt' => $a->start_at?->format('Y-m-d\\TH:i:s'),
+            'endAt' => $a->end_at?->format('Y-m-d\\TH:i:s'),
             'points' => $a->points,
         ])->values()->all();
 
@@ -115,7 +115,7 @@ class SuggestionController extends Controller
                     'points' => $row['points'],
                     'suggestedTime' => $row['suggested_time'],
                     'source' => $source,
-                    'createdAt' => now()->toIso8601String(),
+                    'createdAt' => now()->format('Y-m-d\\TH:i:s'),
                 ];
 
                 return $payload;

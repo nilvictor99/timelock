@@ -54,9 +54,10 @@ export default function Index() {
         );
     }
 
-    const { user, activities, categories, today } = data;
+    const { user, activities, categories } = data;
+    const today = toDateKey();
     const todayActivities = activities
-        .filter((a) => toDateKey(new Date(a.startAt)) === today && !user.pauseActive)
+        .filter((a) => (a.date ?? '').slice(0, 10) === today && !user.pauseActive)
         .sort((a, b) => a.startAt.localeCompare(b.startAt));
     if (user.pauseActive) todayActivities.length = 0;
 

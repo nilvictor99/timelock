@@ -4,6 +4,7 @@ import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DatePicker } from '@/components/ui/date-picker';
 import { ActivityForm } from '@/Components/dashboard/ActivityForm';
 import { Empty } from '@/Components/dashboard/Empty';
 import { useI18n } from '@/lib/i18n';
@@ -37,7 +38,7 @@ export default function Activities() {
 
     const { user, activities, categories } = data;
     const dayActivities = activities
-        .filter((a) => toDateKey(new Date(a.startAt)) === date)
+        .filter((a) => (a.date ?? '').slice(0, 10) === date)
         .sort((a, b) => a.startAt.localeCompare(b.startAt));
 
     async function markDone(activity: Activity) {
@@ -61,12 +62,9 @@ export default function Activities() {
                         </p>
                     </div>
                     <div className="flex gap-2">
-                        <input
-                            type="date"
-                            value={date}
-                            onChange={(event) => setDate(event.target.value)}
-                            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                        />
+                        <div className="w-44">
+                            <DatePicker value={date} onChange={setDate} />
+                        </div>
                         <Button onClick={() => setShowForm(true)}>
                             <Plus size={16} /> {t('actAdd')}
                         </Button>

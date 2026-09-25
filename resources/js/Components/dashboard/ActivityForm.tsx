@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { TimePicker } from '@/components/ui/time-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/lib/i18n';
@@ -111,11 +112,11 @@ export function ActivityForm({
                             <div className="grid grid-cols-2 gap-3">
                                 <label className="text-sm font-medium">
                                     {t('formStart')}
-                                    <Input className="mt-2" type="time" value={start} onChange={(event) => setStart(event.target.value)} />
+                                    <TimePicker className="mt-2" value={start} onChange={setStart} />
                                 </label>
                                 <label className="text-sm font-medium">
                                     {t('formEnd')}
-                                    <Input className="mt-2" type="time" value={end} onChange={(event) => setEnd(event.target.value)} />
+                                    <TimePicker className="mt-2" value={end} onChange={setEnd} />
                                 </label>
                             </div>
                         )}

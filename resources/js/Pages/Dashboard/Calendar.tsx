@@ -109,7 +109,7 @@ export default function Calendar() {
                     {days.map((d) => {
                         const key = toDateKey(d);
                         const items = activities.filter(
-                            (a: Activity) => toDateKey(new Date(a.startAt)) === key,
+                            (a: Activity) => (a.date ?? '').slice(0, 10) === key,
                         );
                         return (
                             <button

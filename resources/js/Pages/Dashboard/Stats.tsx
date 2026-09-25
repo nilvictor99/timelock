@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChartCard } from '@/Components/stats/ChartCard';
 import { StatsMetrics } from '@/Components/stats/StatsMetrics';
-import { StatsFilters, type RangePreset } from '@/Components/stats/StatsFilters';
+import { StatsFilters } from '@/Components/stats/StatsFilters';
 import { CategoryPie } from '@/Components/stats/CategoryPie';
 import { DailyLine } from '@/Components/stats/DailyLine';
 import { TopActivitiesBar } from '@/Components/stats/TopActivitiesBar';
@@ -14,20 +14,12 @@ import { WeekdayComplianceBar } from '@/Components/stats/WeekdayComplianceBar';
 import { RewardsPanel } from '@/Components/stats/RewardsPanel';
 import { StreakPanel } from '@/Components/stats/StreakPanel';
 import type { StatsSummary } from '@/Components/stats/types';
-import { dateRangeSchema } from '@/lib/validations';
 import { useI18n } from '@/lib/i18n';
 import { apiGet } from '@/lib/api';
 
 function endOfDay(date: Date) {
     const result = new Date(date);
     result.setHours(23, 59, 59, 999);
-    return result;
-}
-
-function startOfWeek(date: Date) {
-    const result = new Date(date);
-    result.setHours(0, 0, 0, 0);
-    result.setDate(result.getDate() - result.getDay());
     return result;
 }
 
@@ -43,27 +35,17 @@ export default function Stats() {
     const [summary, setSummary] = React.useState<StatsSummary | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState('');
-    const [preset, setPreset] = React.useState<RangePreset>('week');
-    const [customFrom, setCustomFrom] = React.useState(dateKey(new Date()));
-    const [customTo, setCustomTo] = React.useState(dateKey(new Date()));
+    const [rangeFrom, setRangeFrom] = React.useState(dateKey(new Date()));
+    const [rangeTo, setRangeTo] = React.useState(dateKey(new Date()));
     const [activitySearch, setActivitySearch] = React.useState('');
     const [selectedActivities, setSelectedActivities] = React.useState<string[]>([]);
     const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]);
 
     const { from, to } = React.useMemo(() => {
-        const now = new Date();
-        if (preset === 'today') return { from: new Date(now.setHours(0, 0, 0, 0)), to: endOfDay(new Date()) };
-        if (preset === 'week') return { from: startOfWeek(now), to: endOfDay(new Date()) };
-        if (preset === 'month') return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: endOfDay(new Date()) };
-        const parsed = dateRangeSchema.safeParse({ from: customFrom, to: customTo });
-        if (!parsed.success) {
-            const today = new Date();
-            return { from: new Date(today.setHours(0, 0, 0, 0)), to: endOfDay(new Date()) };
-        }
-        const start = new Date(`${parsed.data.from}T00:00:00`);
-        const end = new Date(`${parsed.data.to}T00:00:00`);
+        const start = new Date(`${rangeFrom}T00:00:00`);
+        const end = new Date(`${rangeTo}T00:00:00`);
         return start <= end ? { from: start, to: endOfDay(end) } : { from: end, to: endOfDay(start) };
-    }, [customFrom, customTo, preset]);
+    }, [rangeFrom, rangeTo]);
 
     const [reloadKey, setReloadKey] = React.useState(0);
     React.useEffect(() => {
@@ -113,15 +95,13 @@ export default function Stats() {
 
                 <StatsFilters
                     options={summary?.options ?? null}
-                    preset={preset}
-                    customFrom={customFrom}
-                    customTo={customTo}
+                    rangeFrom={rangeFrom}
+                    rangeTo={rangeTo}
                     activitySearch={activitySearch}
                     selectedActivities={selectedActivities}
                     selectedCategories={selectedCategories}
-                    onPresetChange={setPreset}
-                    onCustomFromChange={setCustomFrom}
-                    onCustomToChange={setCustomTo}
+                    onRangeFromChange={setRangeFrom}
+                    onRangeToChange={setRangeTo}
                     onActivitySearchChange={setActivitySearch}
                     onActivityToggle={(id) => toggle(id, selectedActivities, setSelectedActivities)}
                     onCategoryToggle={(id) => toggle(id, selectedCategories, setSelectedCategories)}

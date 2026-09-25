@@ -110,7 +110,7 @@ trait SerializesDomain
     private function dateValue(mixed $value): mixed
     {
         if ($value instanceof DateTimeInterface) {
-            return $value->toIso8601String();
+            return $value->format('Y-m-d\TH:i:s');
         }
 
         return $value;

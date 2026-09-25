@@ -20,3 +20,14 @@ Registro exigido por la constitution (regla II: documentar desviaciones en `.spe
 
 ## Validación visual (F4)
 - `terminal-browser` no disponible en este terminal (requiere kitty graphics/ghostty). Validación estática completada (tokens en CSS build, var(--chart en bundle, 0 hex inline, Skeleton en componentes, 10 páginas con layout+active). Recorrido visual manual pendiente por el usuario con cuenta demo@timelock.dev.
+
+## Ciclo 2 — Sincronización horaria + pickers (2026-09-25)
+
+- **Root cause del desfase**: columnas `timestampTz` + sesión Postgres en UTC + APP_TIMEZONE=America/Lima (seteado por el usuario) → Laravel escribía wall-clock Lima interpretado como UTC → tokens QR (TTL 10 min) nacían vencidos y las fechas se movían de día. Fix: `config/database.php` pgsql `'timezone' => env('APP_TIMEZONE', 'UTC')` (PostgresConnector emite `SET TIME ZONE`).
+- **Serialización naive**: `SerializesDomain::dateValue` y Stats/Suggestions emiten `Y-m-d\TH:i:s` sin offset (paridad con origen Next.js: el navegador interpreta wall-clock como local). QR `expiresAt` conserva ISO con offset (instante absoluto correcto para countdown).
+- **Match por día**: calendario/activities usan la columna `date` (`a.date.slice(0,10)`) en vez de parsear `startAt`; Index usa hoy local del cliente.
+- **Pickers**: registry ReUI requiere auth (401) → se usó shadcn `calendar` (react-day-picker, mismo patrón "Calendar with date picker" de reui.io) + `date-picker.tsx`/`time-picker.tsx` propios con idéntico lenguaje visual (popover, borde 1px, tokens, selected bg-primary).
+- **react-live-clock descartado**: requiere moment+react-moment (peer React 16-18, incompat con React 19). `LiveClock` interno con date-fns (ya instalada).
+- **Stats**: presets hoy/semana/mes eliminados; solo from/to con DatePicker, default hoy.
+- Button ganó size `icon` (lo usa el calendario shadcn).
+- Conocimiento: la convención UI vive en ambos AGENTS.md (dev/ como instrucción del agente, app/ versionada en repo).

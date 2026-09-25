@@ -2,23 +2,19 @@ import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
+import { DatePicker } from '@/components/ui/date-picker';
 import type { StatsSummary } from './types';
 import type { Translator } from './format';
 
-export type RangePreset = 'today' | 'week' | 'month' | 'custom';
-
 export function StatsFilters({
     options,
-    preset,
-    customFrom,
-    customTo,
+    rangeFrom,
+    rangeTo,
     activitySearch,
     selectedActivities,
     selectedCategories,
-    onPresetChange,
-    onCustomFromChange,
-    onCustomToChange,
+    onRangeFromChange,
+    onRangeToChange,
     onActivitySearchChange,
     onActivityToggle,
     onCategoryToggle,
@@ -26,15 +22,13 @@ export function StatsFilters({
     t,
 }: {
     options: StatsSummary['options'] | null;
-    preset: RangePreset;
-    customFrom: string;
-    customTo: string;
+    rangeFrom: string;
+    rangeTo: string;
     activitySearch: string;
     selectedActivities: string[];
     selectedCategories: string[];
-    onPresetChange: (preset: RangePreset) => void;
-    onCustomFromChange: (value: string) => void;
-    onCustomToChange: (value: string) => void;
+    onRangeFromChange: (value: string) => void;
+    onRangeToChange: (value: string) => void;
     onActivitySearchChange: (value: string) => void;
     onActivityToggle: (id: string) => void;
     onCategoryToggle: (id: string) => void;
@@ -49,48 +43,16 @@ export function StatsFilters({
         [activitySearch, options],
     );
 
-    const presetKeys: Record<RangePreset, string> = {
-        today: 'statsToday',
-        week: 'statsThisWeek',
-        month: 'statsThisMonth',
-        custom: 'statsCustom',
-    };
-
     return (
         <Card>
-            <CardContent className="grid gap-4 p-4 lg:grid-cols-[1.2fr_1fr_1fr]">
+            <CardContent className="grid gap-4 p-4 lg:grid-cols-[1fr_1fr_1fr]">
                 <div>
                     <label className="mb-2 block text-sm font-medium">{t('statsDateRange')}</label>
-                    <div className="flex flex-wrap gap-2">
-                        {(['today', 'week', 'month', 'custom'] as RangePreset[]).map((value) => (
-                            <button
-                                key={value}
-                                type="button"
-                                onClick={() => onPresetChange(value)}
-                                className={cn(
-                                    'rounded-md border px-3 py-2 text-sm',
-                                    preset === value
-                                        ? 'border-foreground bg-foreground text-background'
-                                        : 'border-border text-muted-foreground',
-                                )}
-                            >
-                                {t(presetKeys[value])}
-                            </button>
-                        ))}
+                    <div className="grid grid-cols-2 gap-2">
+                        <DatePicker value={rangeFrom} onChange={onRangeFromChange} label={t('from')} />
+                        <DatePicker value={rangeTo} onChange={onRangeToChange} label={t('to')} />
                     </div>
                 </div>
-                {preset === 'custom' && (
-                    <div className="grid grid-cols-2 gap-2">
-                        <label className="text-sm">
-                            {t('from')}
-                            <Input className="mt-2" type="date" value={customFrom} onChange={(event) => onCustomFromChange(event.target.value)} />
-                        </label>
-                        <label className="text-sm">
-                            {t('to')}
-                            <Input className="mt-2" type="date" value={customTo} onChange={(event) => onCustomToChange(event.target.value)} />
-                        </label>
-                    </div>
-                )}
                 <div>
                     <label className="mb-2 block text-sm font-medium">{t('statsActivities')}</label>
                     <Input placeholder={t('statsSearchActivities')} value={activitySearch} onChange={(event) => onActivitySearchChange(event.target.value)} />
