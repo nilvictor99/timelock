@@ -23,10 +23,10 @@ class ActivityRepository implements ActivityRepositoryInterface
         $query = Activity::with('category')->where('user_id', $userId);
 
         if ($from !== null) {
-            $query->where('start_at', '>=', $from);
+            $query->where('date', '>=', $from->format('Y-m-d'));
         }
         if ($to !== null) {
-            $query->where('start_at', '<=', $to);
+            $query->where('date', '<=', $to->format('Y-m-d'));
         }
 
         return $query->orderBy('date')->orderBy('start_at')->get();

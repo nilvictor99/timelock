@@ -112,3 +112,9 @@ Plan de mejora estética dirigido con Spec Kit (specs/001-003, artefactos spec/p
 - [x] **DatePicker/TimePicker** (`@/components/ui/{date-picker,time-picker}`): patrón reui.io "Calendar with date picker" (shadcn calendar + Popover, react-day-picker); aplicados en Stats (from/to), Profile (nacimiento, horario), ActivityForm (inicio/fin), Settings (horario silencio), Activities (filtro). Eliminado el último input date/time nativo
 - [x] **Stats simplificado**: presets hoy/semana/mes eliminados; solo los dos DatePickers de rango con default hoy
 - [x] Suite 109/109 (465 aserciones) con Lima activo · build OK · tsc OK
+
+### Estado (Calendario sincronizado + MultiSelect, 2026-09-25)
+- [x] **Bug "lunes 21" corregido**: la vista Día mostraba el lunes de la semana (`days` usaba weekStart); ahora ancla al día actual. `today` viene de `/api/bootstrap` (TZ de la app) con refresco 60 s (medianoche salta sola); badge "Hoy" + ring marcan el día actual; título por vista (día completo / rango semanal / mes); vista Mes 7 columnas alineada lun→dom con cabecera; navegación mensual con clamp (antes `*30` días)
+- [x] **MultiSelect** (`@/components/ui/multi-select`, sin deps nuevas): popover con búsqueda, checkboxes, chips removibles con X, contador en trigger, "Limpiar" y "Seleccionar todo" (categorías con dot de color). Aplicado a Actividades y Categorías en Stats — reemplaza la lista plana truncada a 12; layout de filtros: Rango fila completa + 2 selects
+- [x] **Borde de rango exacto**: `findByUserRange` filtra por columna `date` (antes instantes UTC → ingería 5h del día previo y cortaba la tarde del último día); rewards por wall-clock del TZ de la app
+- [x] Suite **113/113** (481 aserciones, +4 tests: multi ids, multi categorías, intersección, borde 23:30) · tsc OK · build OK · smoke multi-filtro en vivo OK

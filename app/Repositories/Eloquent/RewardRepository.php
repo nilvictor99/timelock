@@ -17,7 +17,8 @@ class RewardRepository implements RewardRepositoryInterface
     public function findByUserRedeemedBetween(string $userId, DateTimeInterface $from, DateTimeInterface $to): Collection
     {
         return Reward::where('user_id', $userId)
-            ->whereBetween('redeemed_at', [$from, $to])
+            ->where('redeemed_at', '>=', $from->format('Y-m-d').' 00:00:00')
+            ->where('redeemed_at', '<=', $to->format('Y-m-d').' 23:59:59')
             ->orderBy('redeemed_at')
             ->get();
     }

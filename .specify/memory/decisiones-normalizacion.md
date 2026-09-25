@@ -31,3 +31,12 @@ Registro exigido por la constitution (regla II: documentar desviaciones en `.spe
 - **Stats**: presets hoy/semana/mes eliminados; solo from/to con DatePicker, default hoy.
 - Button ganó size `icon` (lo usa el calendario shadcn).
 - Conocimiento: la convención UI vive en ambos AGENTS.md (dev/ como instrucción del agente, app/ versionada en repo).
+
+## Ciclo 3 — Calendario sincronizado + MultiSelect en Stats (2026-09-25)
+
+- **Bug "lunes 21"**: la vista Día de Calendar.tsx renderizaba `weekStart` (lunes de la semana) en vez del día anclado; el título solo mostraba el mes y "hoy" era un `border-foreground` invisible. La vista ahora abre en Día, con `today` de `/api/bootstrap` (TZ de la app, no del navegador) + poll 60 s para el salto de medianoche, badge "Hoy" y título por vista (día completo / rango / mes).
+- **MultiSelect**: no existía primitiva; radix no trae multi-select y `cmdk` no está instalado → se construyó `components/ui/multi-select.tsx` con Popover+Checkbox+Input+Badge (mismo lenguaje DatePicker/TimePicker), chips removibles + contador en trigger, `role=listbox` + `aria-selected`. Categorías con dot de color (dato, no token) y "Seleccionar todo".
+- **Borde de rango**: `findByUserRange` comparaba `start_at` contra instantes UTC → con Lima la ventana ingería las últimas 5h del día previo y cortaba la tarde del día final. Ahora filtra por la columna `date` (wall-clock, usa índice user_id+date); rewards igual con `00:00:00–23:59:59` del TZ de la app. Cubierto por test con 23:30 en ambos bordes.
+- **Mes del calendario**: grilla 7 columnas alineada a lunes + cabecera lun→dom (antes `grid-cols-5` desalineada y 35 celdas fijas); `shift()` usa `setMonth` con clamp de día (antes `*30` días).
+- Hex inline eliminado del calendario: completadas → `bg-success/15 text-success`; borde de categoría sin color → `var(--color-border)`.
+- Nota infra: si Pest falla con `file_put_contents(...cache/data...)`, es el directorio de cache de archivo borrado: `mkdir -p storage/framework/cache/data` (no es código).

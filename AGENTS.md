@@ -48,7 +48,7 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 
 ## Convención de componentes UI (design system Timelock)
 
-- **`@/components/ui/*`** (minúsculas): primitivas shadcn/radix-nova (button, card, input, badge, checkbox, select, textarea, dialog, skeleton, tabs, tooltip, separator, dropdown-menu, popover, calendar, date-picker, time-picker). Nunca duplicar sus estilos con clases manuales.
+- **`@/components/ui/*`** (minúsculas): primitivas shadcn/radix-nova (button, card, input, badge, checkbox, select, textarea, dialog, skeleton, tabs, tooltip, separator, dropdown-menu, popover, calendar, date-picker, time-picker, multi-select). Nunca duplicar sus estilos con clases manuales.
 - **`@/Components/<dominio>/*`** (mayúsculas): componentes de dominio (dashboard, stats, auth...). Encapsulan lógica de módulo; las Pages solo orquestan.
 - **Tokens obligatorios**: todo color/estado visual sale de `resources/css/app.css`. Prohibido hex inline en JSX (verificar: `grep -rE 'fill="#|stroke="#' resources/js`).
 - **Charts**: consumir `resources/js/lib/charts.ts` (`CHART_COLORS`, `chartVar(n)`) — paleta `--chart-1..7` con contraste AA light/dark (ver `.specify/memory/design-tokens-charts.md`).

@@ -37,7 +37,6 @@ export default function Stats() {
     const [error, setError] = React.useState('');
     const [rangeFrom, setRangeFrom] = React.useState(dateKey(new Date()));
     const [rangeTo, setRangeTo] = React.useState(dateKey(new Date()));
-    const [activitySearch, setActivitySearch] = React.useState('');
     const [selectedActivities, setSelectedActivities] = React.useState<string[]>([]);
     const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]);
 
@@ -77,9 +76,6 @@ export default function Stats() {
         };
     }, [from, to, selectedActivities, selectedCategories, reloadKey, t]);
 
-    const toggle = (value: string, values: string[], setValues: (next: string[]) => void) =>
-        setValues(values.includes(value) ? values.filter((item) => item !== value) : [...values, value]);
-
     const hasData = Boolean(
         summary && (summary.kpis.completed > 0 || summary.kpis.rewardsRedeemed > 0 || summary.category.length > 0),
     );
@@ -97,14 +93,12 @@ export default function Stats() {
                     options={summary?.options ?? null}
                     rangeFrom={rangeFrom}
                     rangeTo={rangeTo}
-                    activitySearch={activitySearch}
                     selectedActivities={selectedActivities}
                     selectedCategories={selectedCategories}
                     onRangeFromChange={setRangeFrom}
                     onRangeToChange={setRangeTo}
-                    onActivitySearchChange={setActivitySearch}
-                    onActivityToggle={(id) => toggle(id, selectedActivities, setSelectedActivities)}
-                    onCategoryToggle={(id) => toggle(id, selectedCategories, setSelectedCategories)}
+                    onActivitiesChange={setSelectedActivities}
+                    onCategoriesChange={setSelectedCategories}
                     onClearFilters={() => {
                         setSelectedActivities([]);
                         setSelectedCategories([]);
