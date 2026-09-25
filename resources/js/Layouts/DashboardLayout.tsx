@@ -243,7 +243,7 @@ export default function DashboardLayout({
                         </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-                        <LiveClock className="hidden sm:flex" />
+                        <LiveClock className="flex" />
                         <div className="hidden items-center gap-2 rounded-full border border-border px-3 py-1.5 text-sm sm:flex">
                             <Trophy size={15} className="text-warning" /> {user?.points ?? 0} pts
                         </div>

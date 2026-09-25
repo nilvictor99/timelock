@@ -83,20 +83,19 @@ export default function Calendar() {
     const anchor = new Date(`${anchorKey}T12:00:00`);
     const weekStart = startOfWeek(anchor);
 
-    const days = React.useMemo(() => {
-        if (view === 'day') {
-            return [anchor];
-        }
-        if (view === 'week') {
-            return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
-        }
-        const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
-        const gridStart = startOfWeek(first);
-        const offset = Math.round((first.getTime() - gridStart.getTime()) / 86_400_000);
-        const daysInMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
-        const weeks = Math.ceil((offset + daysInMonth) / 7);
-        return Array.from({ length: weeks * 7 }, (_, index) => addDays(gridStart, index));
-    }, [anchor, weekStart, view]);
+    const days =
+        view === 'day'
+            ? [anchor]
+            : view === 'week'
+              ? Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
+              : (() => {
+                    const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+                    const gridStart = startOfWeek(first);
+                    const offset = Math.round((first.getTime() - gridStart.getTime()) / 86_400_000);
+                    const daysInMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
+                    const weeks = Math.ceil((offset + daysInMonth) / 7);
+                    return Array.from({ length: weeks * 7 }, (_, index) => addDays(gridStart, index));
+                })();
 
     const title =
         view === 'day'
