@@ -1,4 +1,5 @@
 import { Download } from 'lucide-react';
+import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useI18n } from '@/lib/i18n';
@@ -17,7 +18,7 @@ export default function ExportView() {
     };
 
     return (
-        <>
+        <DashboardLayout active="export">
             <div className="max-w-3xl space-y-6">
                 <div>
                     <h2 className="text-2xl font-bold">{t('exportTitle')}</h2>
@@ -56,6 +57,6 @@ export default function ExportView() {
                     </CardContent>
                 </Card>
             </div>
-        </>
+        </DashboardLayout>
     );
 }

@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Flame } from 'lucide-react';
+import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useI18n } from '@/lib/i18n';
 import { apiGet } from '@/lib/api';
@@ -20,14 +21,18 @@ export default function Streak() {
     }, []);
 
     if (!data) {
-        return <p className="text-sm text-muted-foreground">{error ?? t('dashboard.loading')}</p>;
+        return (
+            <DashboardLayout active="streak">
+                <p className="text-sm text-muted-foreground">{error ?? t('dashboard.loading')}</p>
+            </DashboardLayout>
+        );
     }
 
     const current = data.user.currentStreak ?? 0;
     const best = data.user.bestStreak ?? 0;
 
     return (
-        <>
+        <DashboardLayout active="streak">
             <div className="mx-auto max-w-3xl space-y-6">
                 <div className="text-center">
                     <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-full bg-orange-100 text-warning dark:bg-orange-950">
@@ -64,6 +69,6 @@ export default function Streak() {
                     </CardContent>
                 </Card>
             </div>
-        </>
+        </DashboardLayout>
     );
 }

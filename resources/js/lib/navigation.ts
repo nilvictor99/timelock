@@ -27,14 +27,6 @@ export const mobilePrimaryNavigation: NavId[] = ['home', 'activities', 'calendar
 
 export const mobileMoreNavigation: NavId[] = ['suggestions', 'rewards', 'streak', 'settings', 'export'];
 
-export type TabId = 'activities' | 'suggestions' | 'rewards' | 'calendar' | 'streak' | 'export';
-
-export const tabIds: TabId[] = ['activities', 'suggestions', 'rewards', 'calendar', 'streak', 'export'];
-
-export function isTabId(value: string | null | undefined): value is TabId {
-    return value !== null && value !== undefined && (tabIds as string[]).includes(value);
-}
-
 export function navigationPath(id: NavId): string {
     switch (id) {
         case 'home':
@@ -42,20 +34,47 @@ export function navigationPath(id: NavId): string {
         case 'stats':
             return '/dashboard/stats';
         case 'activities':
-            return '/dashboard?tab=activities';
+            return '/dashboard/activities';
         case 'suggestions':
-            return '/dashboard?tab=suggestions';
+            return '/dashboard/suggestions';
         case 'rewards':
-            return '/dashboard?tab=rewards';
+            return '/dashboard/rewards';
         case 'calendar':
-            return '/dashboard?tab=calendar';
+            return '/dashboard/calendar';
         case 'streak':
-            return '/dashboard?tab=streak';
+            return '/dashboard/streak';
         case 'profile':
             return '/dashboard/profile';
         case 'settings':
             return '/dashboard/settings';
         case 'export':
-            return '/dashboard?tab=export';
+            return '/dashboard/export';
+    }
+}
+
+export function activeFromPathname(pathname: string): NavId | null {
+    switch (pathname) {
+        case '/dashboard':
+            return 'home';
+        case '/dashboard/stats':
+            return 'stats';
+        case '/dashboard/activities':
+            return 'activities';
+        case '/dashboard/suggestions':
+            return 'suggestions';
+        case '/dashboard/rewards':
+            return 'rewards';
+        case '/dashboard/calendar':
+            return 'calendar';
+        case '/dashboard/streak':
+            return 'streak';
+        case '/dashboard/profile':
+            return 'profile';
+        case '/dashboard/settings':
+            return 'settings';
+        case '/dashboard/export':
+            return 'export';
+        default:
+            return null;
     }
 }

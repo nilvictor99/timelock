@@ -4,7 +4,6 @@ import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Empty } from '@/Components/dashboard/Empty';
 import { ChartCard } from '@/Components/stats/ChartCard';
 import { StatsMetrics } from '@/Components/stats/StatsMetrics';
 import { StatsFilters, type RangePreset } from '@/Components/stats/StatsFilters';

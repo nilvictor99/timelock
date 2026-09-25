@@ -6,7 +6,7 @@ function Separator({
   orientation = "horizontal",
   decorative = true,
   ...props
-}: React.ComponentProps<"div"> & { orientation?: "horizontal" | "vertical" }) {
+}: React.ComponentProps<"div"> & { orientation?: "horizontal" | "vertical"; decorative?: boolean }) {
   const ariaOrientation = orientation === "vertical" ? "vertical" : undefined
 
   return (

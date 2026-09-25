@@ -33,6 +33,29 @@ it('serves dashboard sub-pages with the session user', function () {
         ->assertInertia(fn ($page) => $page->component('Dashboard/Stats'));
 });
 
+it('serves the module pages as standalone routes', function () {
+    $modules = [
+        'activities' => 'Dashboard/Activities',
+        'suggestions' => 'Dashboard/Suggestions',
+        'rewards' => 'Dashboard/Rewards',
+        'calendar' => 'Dashboard/Calendar',
+        'streak' => 'Dashboard/Streak',
+        'export' => 'Dashboard/Export',
+    ];
+
+    foreach ($modules as $slug => $component) {
+        $this->get("/dashboard/{$slug}")
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component($component));
+    }
+});
+
+it('redirects legacy tab query links to their module routes', function () {
+    $this->get('/dashboard?tab=activities')->assertRedirect('/dashboard/activities');
+    $this->get('/dashboard?tab=export')->assertRedirect('/dashboard/export');
+    $this->get('/dashboard?tab=home')->assertOk();
+});
+
 it('redirects an unfinished onboarding user away from the dashboard', function () {
     $newbieToken = $this->authenticate();
     $this->withTimelockSession($newbieToken)

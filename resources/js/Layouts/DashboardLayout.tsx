@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
-import { mobileMoreNavigation, mobilePrimaryNavigation, navigationPath, isTabId, type NavId, type TabId } from '@/lib/navigation';
+import { mobileMoreNavigation, mobilePrimaryNavigation, navigationPath, activeFromPathname, type NavId } from '@/lib/navigation';
 import type { User } from '@/types';
 
 export type ShellNavId = NavId;
@@ -42,19 +42,8 @@ const navItems: { id: NavId; labelKey: string; icon: typeof Home }[] = [
 ];
 
 function activeFromUrl(rawUrl: string): NavId {
-    const [pathname, query] = rawUrl.split('?');
-    if (pathname === '/dashboard') {
-        const tab = new URLSearchParams(query).get('tab');
-        if (isTabId(tab)) return tab;
-        if (tab === 'home' || tab === null) return 'home';
-        return 'home';
-    }
-    const match = navItems.find((item) => navigationPath(item.id) === pathname);
-    return match?.id ?? 'home';
-}
-
-function isRouteNav(id: NavId): boolean {
-    return id === 'profile' || id === 'settings' || id === 'stats';
+    const [pathname] = rawUrl.split('?');
+    return activeFromPathname(pathname) ?? 'home';
 }
 
 const headerDateFormatters = {
@@ -65,11 +54,9 @@ const headerDateFormatters = {
 export default function DashboardLayout({
     children,
     active,
-    onTabChange,
 }: {
     children: React.ReactNode;
     active?: NavId;
-    onTabChange?: (tab: TabId) => void;
 }) {
     const { t } = useI18n();
     const { setTheme, resolvedTheme } = useTheme();
@@ -143,38 +130,6 @@ export default function DashboardLayout({
             </>
         );
 
-        if (isRouteNav(item.id)) {
-            return (
-                <Link
-                    key={item.id}
-                    href={navigationPath(item.id)}
-                    onClick={closeMobileNav}
-                    title={!expanded ? label : undefined}
-                    aria-label={label}
-                    className={className}
-                >
-                    {inner}
-                </Link>
-            );
-        }
-        const tabId = isTabId(item.id) ? item.id : null;
-        if (onTabChange && tabId) {
-            return (
-                <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                        onTabChange(tabId);
-                        closeMobileNav();
-                    }}
-                    title={!expanded ? label : undefined}
-                    aria-label={label}
-                    className={className}
-                >
-                    {inner}
-                </button>
-            );
-        }
         return (
             <Link
                 key={item.id}
@@ -206,29 +161,6 @@ export default function DashboardLayout({
         const closeMobileNav = () => setMobileNav(false);
         const inner = <><Icon size={compact ? 18 : 19} /><span>{label}</span></>;
 
-        if (isRouteNav(id)) {
-            return (
-                <Link key={id} href={navigationPath(id)} onClick={closeMobileNav} className={className} aria-label={label}>
-                    {inner}
-                </Link>
-            );
-        }
-        if (onTabChange && isTabId(id)) {
-            return (
-                <button
-                    key={id}
-                    type="button"
-                    onClick={() => {
-                        onTabChange(id);
-                        closeMobileNav();
-                    }}
-                    className={className}
-                    aria-label={label}
-                >
-                    {inner}
-                </button>
-            );
-        }
         return (
             <Link key={id} href={navigationPath(id)} onClick={closeMobileNav} className={className} aria-label={label}>
                 {inner}

@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Gift } from 'lucide-react';
+import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Empty } from '@/Components/dashboard/Empty';
@@ -32,7 +33,11 @@ export default function Rewards() {
     }, [toast]);
 
     if (!data) {
-        return <p className="text-sm text-muted-foreground">{error ?? t('dashboard.loading')}</p>;
+        return (
+            <DashboardLayout active="rewards">
+                <p className="text-sm text-muted-foreground">{error ?? t('dashboard.loading')}</p>
+            </DashboardLayout>
+        );
     }
 
     const { user, rewards } = data;
@@ -51,7 +56,7 @@ export default function Rewards() {
     }
 
     return (
-        <>
+        <DashboardLayout active="rewards">
             <div className="space-y-6">
                 <div>
                     <h2 className="text-2xl font-bold">{t('rewardsTitle')}</h2>
@@ -102,6 +107,6 @@ export default function Rewards() {
             </div>
 
             {toast && <Toast message={toast} />}
-        </>
+        </DashboardLayout>
     );
 }

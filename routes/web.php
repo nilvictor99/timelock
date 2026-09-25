@@ -39,16 +39,29 @@ Route::middleware('auth.session')->group(function () {
         }
         return Inertia::render('Onboarding');
     })->name('onboarding');
+    Route::get('/dashboard/profile', fn (Request $request) => Inertia::render('Dashboard/Profile', ['user' => $request->attributes->get('auth_user')]))->name('dashboard.profile');
+    Route::get('/dashboard/settings', fn (Request $request) => Inertia::render('Dashboard/Settings', ['user' => $request->attributes->get('auth_user')]))->name('dashboard.settings');
+    Route::get('/dashboard/stats', fn () => Inertia::render('Dashboard/Stats'))->name('dashboard.stats');
+    Route::get('/dashboard/activities', fn () => Inertia::render('Dashboard/Activities'))->name('dashboard.activities');
+    Route::get('/dashboard/suggestions', fn () => Inertia::render('Dashboard/Suggestions'))->name('dashboard.suggestions');
+    Route::get('/dashboard/rewards', fn () => Inertia::render('Dashboard/Rewards'))->name('dashboard.rewards');
+    Route::get('/dashboard/calendar', fn () => Inertia::render('Dashboard/Calendar'))->name('dashboard.calendar');
+    Route::get('/dashboard/streak', fn () => Inertia::render('Dashboard/Streak'))->name('dashboard.streak');
+    Route::get('/dashboard/export', fn () => Inertia::render('Dashboard/Export'))->name('dashboard.export');
     Route::get('/dashboard', function (Request $request) {
+        $tab = $request->query('tab');
+        $legacy = ['activities', 'suggestions', 'rewards', 'calendar', 'streak', 'export'];
+
+        if (is_string($tab) && in_array($tab, $legacy, true)) {
+            return redirect()->to('/dashboard/'.$tab);
+        }
+
         $user = $request->attributes->get('auth_user');
         if ($user !== null && ! $user->onboarding_completed) {
             return redirect()->route('onboarding');
         }
         return Inertia::render('Dashboard/Index');
     })->name('dashboard');
-    Route::get('/dashboard/profile', fn (Request $request) => Inertia::render('Dashboard/Profile', ['user' => $request->attributes->get('auth_user')]))->name('dashboard.profile');
-    Route::get('/dashboard/settings', fn (Request $request) => Inertia::render('Dashboard/Settings', ['user' => $request->attributes->get('auth_user')]))->name('dashboard.settings');
-    Route::get('/dashboard/stats', fn () => Inertia::render('Dashboard/Stats'))->name('dashboard.stats');
 
     Route::get('/api/bootstrap', [DashboardController::class, 'bootstrap'])->name('api.bootstrap');
     Route::get('/api/stats/summary', [StatsController::class, 'summary'])->name('api.stats.summary');

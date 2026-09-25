@@ -1,12 +1,7 @@
 import * as React from 'react';
 import { ChevronRight, Clock3, Flame, Play, Plus, Target, Trophy } from 'lucide-react';
+import { router } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import ActivitiesView from '@/Pages/Dashboard/Activities';
-import RewardsView from '@/Pages/Dashboard/Rewards';
-import SuggestionsView from '@/Pages/Dashboard/Suggestions';
-import StreakView from '@/Pages/Dashboard/Streak';
-import ExportView from '@/Pages/Dashboard/Export';
-import CalendarView from '@/Pages/Dashboard/Calendar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,24 +13,12 @@ import { Metric } from '@/Components/dashboard/Metric';
 import { PauseBanner } from '@/Components/dashboard/PauseBanner';
 import { Toast } from '@/Components/dashboard/Toast';
 import { useI18n } from '@/lib/i18n';
-import { isTabId, type NavId } from '@/lib/navigation';
 import { apiGet, apiPatch } from '@/lib/api';
 import { formatTime, minutesBetween, toDateKey } from '@/lib/utils';
 import type { Activity, Bootstrap } from '@/types';
 
-function initialTab(): NavId {
-    try {
-        const value = new URLSearchParams(window.location.search).get('tab');
-        if (isTabId(value)) return value;
-    } catch {
-        // ignore
-    }
-    return 'home';
-}
-
 export default function Index() {
     const { t } = useI18n();
-    const [tab, setTab] = React.useState<NavId>(initialTab);
     const [data, setData] = React.useState<Bootstrap | null>(null);
     const [error, setError] = React.useState<string | null>(null);
     const [activeTimer, setActiveTimer] = React.useState<Activity | null>(null);
@@ -65,7 +48,7 @@ export default function Index() {
 
     if (!data) {
         return (
-            <DashboardLayout active={tab} onTabChange={setTab}>
+            <DashboardLayout active="home">
                 <p className="text-sm text-muted-foreground">{error ?? t('dashboard.loading')}</p>
             </DashboardLayout>
         );
@@ -159,7 +142,7 @@ export default function Index() {
                 <Card>
                     <CardHeader className="flex-row items-center justify-between">
                         <CardTitle>{t('homeAgenda')}</CardTitle>
-                        <Button variant="ghost" size="sm" onClick={() => setTab('activities')}>
+                        <Button variant="ghost" size="sm" onClick={() => router.get('/dashboard/activities')}>
                             {t('homeViewAll')} <ChevronRight size={15} />
                         </Button>
                     </CardHeader>
@@ -213,14 +196,8 @@ export default function Index() {
     );
 
     return (
-        <DashboardLayout active={tab} onTabChange={setTab}>
-            {tab === 'home' && homeView}
-            {tab === 'activities' && <ActivitiesView />}
-            {tab === 'suggestions' && <SuggestionsView />}
-            {tab === 'rewards' && <RewardsView />}
-            {tab === 'calendar' && <CalendarView onNavigate={setTab} />}
-            {tab === 'streak' && <StreakView />}
-            {tab === 'export' && <ExportView />}
+        <DashboardLayout active="home">
+            {homeView}
 
             {showForm && (
                 <ActivityForm

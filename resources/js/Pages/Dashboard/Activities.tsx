@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Check, Plus, Trash2 } from 'lucide-react';
+import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +28,11 @@ export default function Activities() {
     React.useEffect(load, [load]);
 
     if (!data) {
-        return <p className="text-sm text-muted-foreground">{error ?? t('dashboard.loading')}</p>;
+        return (
+            <DashboardLayout active="activities">
+                <p className="text-sm text-muted-foreground">{error ?? t('dashboard.loading')}</p>
+            </DashboardLayout>
+        );
     }
 
     const { user, activities, categories } = data;
@@ -46,7 +51,7 @@ export default function Activities() {
     }
 
     return (
-        <>
+        <DashboardLayout active="activities">
             <div className="space-y-5">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
@@ -148,6 +153,6 @@ export default function Activities() {
                     }}
                 />
             )}
-        </>
+        </DashboardLayout>
     );
 }

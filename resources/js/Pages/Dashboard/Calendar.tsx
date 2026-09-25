@@ -1,10 +1,11 @@
 import * as React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { router } from '@inertiajs/react';
+import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/lib/i18n';
 import { apiGet } from '@/lib/api';
 import { cn, toDateKey } from '@/lib/utils';
-import type { TabId } from '@/lib/navigation';
 import type { Activity, Bootstrap } from '@/types';
 
 const calendarMonthFormatter = new Intl.DateTimeFormat('es', { month: 'long', year: 'numeric' });
@@ -12,7 +13,7 @@ const calendarDayFormatter = new Intl.DateTimeFormat('es', { weekday: 'short', d
 
 type ViewMode = 'day' | 'week' | 'month';
 
-export default function Calendar({ onNavigate }: { onNavigate?: (tab: TabId) => void }) {
+export default function Calendar() {
     const { t } = useI18n();
     const [data, setData] = React.useState<Bootstrap | null>(null);
     const [error, setError] = React.useState<string | null>(null);
@@ -28,7 +29,11 @@ export default function Calendar({ onNavigate }: { onNavigate?: (tab: TabId) => 
     React.useEffect(load, [load]);
 
     if (!data) {
-        return <p className="text-sm text-muted-foreground">{error ?? t('dashboard.loading')}</p>;
+        return (
+            <DashboardLayout active="calendar">
+                <p className="text-sm text-muted-foreground">{error ?? t('dashboard.loading')}</p>
+            </DashboardLayout>
+        );
     }
 
     const { activities } = data;
@@ -52,7 +57,7 @@ export default function Calendar({ onNavigate }: { onNavigate?: (tab: TabId) => 
     const title = calendarMonthFormatter.format(anchor);
 
     return (
-        <>
+        <DashboardLayout active="calendar">
             <div className="space-y-6">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
@@ -69,15 +74,12 @@ export default function Calendar({ onNavigate }: { onNavigate?: (tab: TabId) => 
                         <Button variant="outline" size="sm" onClick={() => shift(1)} aria-label="next">
                             <ChevronRight size={15} />
                         </Button>
-                        {onNavigate ? (
-                            <Button variant="outline" onClick={() => onNavigate('activities')}>
-                                {t('calendarManage')}
-                            </Button>
-                        ) : (
-                            <a href="/dashboard?tab=activities" className="rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted">
-                                {t('calendarManage')}
-                            </a>
-                        )}
+                        <Button
+                            variant="outline"
+                            onClick={() => router.get('/dashboard/activities')}
+                        >
+                            {t('calendarManage')}
+                        </Button>
                     </div>
                 </div>
 
@@ -144,6 +146,6 @@ export default function Calendar({ onNavigate }: { onNavigate?: (tab: TabId) => 
                     })}
                 </div>
             </div>
-        </>
+        </DashboardLayout>
     );
 }
