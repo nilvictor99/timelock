@@ -193,6 +193,7 @@ docker compose exec laravel.test ./vendor/bin/pint --test   # check only
 
 # Frontend
 docker compose exec laravel.test npm run typecheck
+docker compose exec laravel.test npm run test:frontend   # pure camera logic
 docker compose exec laravel.test npm run build
 
 # Database
@@ -294,6 +295,28 @@ either one invalidates the user's other sessions.
 **QR login:** `AuthService::createQrToken` generates a single-use token with a 10-minute TTL and
 revokes any previous pending ones, so every new QR invalidates the old one. `POST /auth/qr-login`
 is throttled to 10/min per IP, and the scheduled `qr:prune` command purges expired tokens daily.
+
+**Multi-camera QR scanner:** `Components/Auth/QrScanner.tsx` always starts by `deviceId`. When the
+requested camera is absent the browser silently falls back to one of its own choosing rather than
+failing, so asking for `facingMode: 'environment'` leaves the decision to the browser instead of to us.
+The component enumerates devices with `Html5Qrcode.getCameras()` and picks the rear one by label; when
+more than one camera is present it shows a button that cycles through all of them. The torch button only appears
+when `torchFeature().isSupported()` confirms support, and it **starts off**. As a fallback there is
+image upload (`scanFile`), which stops the camera first because the library rejects a file scan while
+a camera scan is running. The camera is released when the tab is hidden.
+
+The selection logic lives separately in `resources/js/lib/camera.ts`, as pure functions with no React
+or DOM (`classifyCamera`, `pickInitialCamera`, `nextCameraIndex`, `classifyCameraError`, `qrboxFor`),
+covered by `tests/frontend/camera.test.ts`, which runs on Node's own test runner with no new
+dependencies:
+
+```sh
+npm run test:frontend
+```
+
+Camera failures are classified and translated separately (`permission-denied`, `no-camera`, `in-use`,
+`not-found`, `insecure-context`, `unsupported`) instead of always reporting "check your permissions",
+which is what made the real error unreadable on desktop.
 
 ### Frontend
 

@@ -7,8 +7,19 @@ import { Input } from '@/components/ui/input';
 import QrScanner from '@/Components/Auth/QrScanner';
 import { useI18n } from '@/lib/i18n';
 import { apiPost } from '@/lib/api';
+import type { CameraErrorKind } from '@/lib/camera';
 
 const QR_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+const CAMERA_ERROR_KEYS: Record<CameraErrorKind, string> = {
+    'insecure-context': 'camera.error.insecureContext',
+    'no-camera': 'camera.error.noCamera',
+    'permission-denied': 'camera.error.permissionDenied',
+    'in-use': 'camera.error.inUse',
+    'not-found': 'camera.error.notFound',
+    unsupported: 'camera.error.unsupported',
+    unknown: 'camera.error.unknown',
+};
 
 function normalizeQrValue(value: string): string | null {
     const trimmed = value.trim();
@@ -61,19 +72,59 @@ export default function Login() {
         }
     }
 
-    function handleScan(value: string) {
+    function handleScan(value: string): boolean {
         const token = normalizeQrValue(value);
-        if (token) {
-            setQrToken(token);
-            setShowScanner(false);
-            setScannerError('');
-            void authenticate(token);
-        } else {
+        if (!token) {
             setScannerError(t('qrScanError'));
+            return false;
         }
+
+        setQrToken(token);
+        setShowScanner(false);
+        setScannerError('');
+        void authenticate(token);
+
+        return true;
     }
 
     const serverError = Object.values(errors)[0] as string | undefined;
+
+    const dialogRef = React.useRef<HTMLDivElement | null>(null);
+
+    React.useEffect(() => {
+        if (!showScanner) return;
+
+        const dialog = dialogRef.current;
+        dialog?.focus();
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setShowScanner(false);
+                return;
+            }
+            if (event.key !== 'Tab' || !dialog) return;
+
+            const focusable = Array.from(
+                dialog.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, video, [tabindex]'),
+            ).filter((element) => element.getAttribute('tabindex') !== '-1' && !element.hasAttribute('disabled'));
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (!first || !last) return;
+
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+
+        document.addEventListener('keydown', onKeyDown);
+
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [showScanner]);
 
     return (
         <main className="grid min-h-screen place-items-center bg-muted/30 p-6">
@@ -187,26 +238,41 @@ export default function Login() {
             </Card>
             {showScanner && (
                 <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
-                    <Card className="w-full max-w-md">
-                        <CardHeader>
-                            <CardTitle>{t('qrScannerTitle')}</CardTitle>
-                            <p className="text-sm text-muted-foreground">{t('scanInstructions')}</p>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <QrScanner
-                                onDetected={handleScan}
-                                onError={(kind) =>
-                                    setScannerError(kind === 'camera' ? t('cameraPermission') : t('qrScanError'))
-                                }
-                            />
-                            {scannerError && (
-                                <p className="rounded-md border border-danger p-3 text-sm text-danger">{scannerError}</p>
-                            )}
-                            <Button variant="outline" className="w-full" onClick={() => setShowScanner(false)}>
-                                {t('cancel')}
-                            </Button>
-                        </CardContent>
-                    </Card>
+                    <div
+                        ref={dialogRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={t('qrScannerTitle')}
+                        tabIndex={-1}
+                        className="w-full max-w-md focus:outline-none"
+                    >
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>{t('qrScannerTitle')}</CardTitle>
+                                <p className="text-sm text-muted-foreground">{t('scanInstructions')}</p>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <QrScanner
+                                    onDetected={handleScan}
+                                    onError={(kind) => setScannerError(t(CAMERA_ERROR_KEYS[kind]))}
+                                    onInvalidQr={() => setScannerError(t('qrScanError'))}
+                                />
+                                {scannerError && (
+                                    <p className="rounded-md border border-danger p-3 text-sm text-danger">{scannerError}</p>
+                                )}
+                                <Button
+                                    variant="outline"
+                                    className="w-full"
+                                    onClick={() => {
+                                        setScannerError('');
+                                        setShowScanner(false);
+                                    }}
+                                >
+                                    {t('cancel')}
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             )}
         </main>

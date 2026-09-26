@@ -193,6 +193,7 @@ docker compose exec laravel.test ./vendor/bin/pint --test   # solo verifica
 
 # Frontend
 docker compose exec laravel.test npm run typecheck
+docker compose exec laravel.test npm run test:frontend   # lógica pura de cámara
 docker compose exec laravel.test npm run build
 
 # Base de datos
@@ -294,6 +295,27 @@ Cambiar cualquiera de los dos invalida el resto de las sesiones del usuario.
 **Login por QR:** `AuthService::createQrToken` genera un token de un solo uso con TTL de 10 minutos y
 revoca los pendientes anteriores, de modo que cada QR nuevo anula al viejo. `POST /auth/qr-login`
 tiene throttle de 10/min por IP, y el comando programado `qr:prune` purga los caducados cada día.
+
+**Escáner QR multi-cámara:** `Components/Auth/QrScanner.tsx` arranca siempre por `deviceId`. Cuando la
+cámara pedida no existe, el navegador recurre a la que quiera en lugar de fallar, así que pedir
+`facingMode: 'environment'` deja la elección en manos del navegador y no en las nuestras. El
+componente enumera los dispositivos con `Html5Qrcode.getCameras()` y elige la trasera por etiqueta; si
+hay más de una cámara muestra un botón que cicla todas ellas. La linterna solo aparece cuando
+`torchFeature().isSupported()` lo confirma y **arranca apagada**. Como respaldo hay carga de imagen
+(`scanFile`), que detiene la cámara antes porque la librería rechaza un escaneo de fichero con una
+cámara activa. Al ocultar la pestaña la cámara se libera.
+
+La lógica de selección vive aparte, en `resources/js/lib/camera.ts`, como funciones puras sin React ni
+DOM (`classifyCamera`, `pickInitialCamera`, `nextCameraIndex`, `classifyCameraError`, `qrboxFor`), con
+tests en `tests/frontend/camera.test.ts` que corren con el runner de Node y sin dependencias nuevas:
+
+```sh
+npm run test:frontend
+```
+
+Los fallos de cámara se clasifican y se traducen por separado (`permission-denied`, `no-camera`,
+`in-use`, `not-found`, `insecure-context`, `unsupported`), en lugar de reportar siempre "revisa los
+permisos", que era la causa de que el error real fuera indescifrable en escritorio.
 
 ### Frontend
 

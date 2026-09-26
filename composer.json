@@ -63,6 +63,9 @@
         "typecheck": [
             "docker compose exec laravel.test npm run typecheck"
         ],
+        "test:frontend": [
+            "docker compose exec laravel.test npm run test:frontend"
+        ],
         "build": [
             "./start.sh build"
         ],
