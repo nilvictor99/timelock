@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -30,7 +31,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Hidden(['password_hash'])]
 class User extends Model
 {
-    use HasUuids;
+    use HasFactory, HasUuids;
 
     public $incrementing = false;
 
@@ -53,6 +54,7 @@ class User extends Model
             'free_days' => 'array',
             'resources_access' => 'array',
             'main_goals' => 'array',
+            'interests' => 'array',
             'notification_types' => 'array',
             'notifications_enabled' => 'boolean',
             'voice_enabled' => 'boolean',

@@ -40,18 +40,34 @@
         "setup": [
             "composer install",
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
-            "@php artisan key:generate",
-            "@php artisan migrate --force",
-            "npm install --ignore-scripts",
-            "npm run build"
+            "docker compose up -d",
+            "docker compose exec laravel.test php artisan key:generate",
+            "docker compose exec laravel.test php artisan migrate --force",
+            "docker compose exec laravel.test npm install --ignore-scripts",
+            "docker compose exec laravel.test npm run build"
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "@php artisan dev"
+            "./start.sh dev"
         ],
         "test": [
-            "@php artisan config:clear --ansi @no_additional_args",
-            "@php artisan test"
+            "docker compose exec laravel.test php artisan config:clear",
+            "docker compose exec laravel.test php artisan test"
+        ],
+        "lint": [
+            "docker compose exec laravel.test ./vendor/bin/pint --test"
+        ],
+        "fix": [
+            "docker compose exec laravel.test ./vendor/bin/pint"
+        ],
+        "typecheck": [
+            "docker compose exec laravel.test npm run typecheck"
+        ],
+        "build": [
+            "./start.sh build"
+        ],
+        "seed": [
+            "docker compose exec laravel.test php artisan db:seed"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

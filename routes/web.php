@@ -5,8 +5,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\SuggestionController;
 use App\Http\Controllers\StatsController;
+use App\Http\Controllers\SuggestionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -37,6 +37,7 @@ Route::middleware('auth.session')->group(function () {
         if ($user !== null && $user->onboarding_completed) {
             return redirect()->route('dashboard');
         }
+
         return Inertia::render('Onboarding');
     })->name('onboarding');
     Route::get('/dashboard/profile', fn (Request $request) => Inertia::render('Dashboard/Profile', ['user' => $request->attributes->get('auth_user')]))->name('dashboard.profile');
@@ -60,6 +61,7 @@ Route::middleware('auth.session')->group(function () {
         if ($user !== null && ! $user->onboarding_completed) {
             return redirect()->route('onboarding');
         }
+
         return Inertia::render('Dashboard/Index');
     })->name('dashboard');
 

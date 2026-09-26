@@ -12,7 +12,7 @@ A personal productivity app where the time you log turns into visible progress.
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38bdf8?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![PHP](https://img.shields.io/badge/PHP-8.5-777bb4?logo=php&logoColor=white)](https://php.net)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169e1?logo=postgresql&logoColor=white)](https://postgresql.org)
-[![Pest](https://img.shields.io/badge/tests-Pest%20113%20passed-4b9560?logo=pestphp&logoColor=white)](#testing)
+[![Pest](https://img.shields.io/badge/tests-Pest%20119%20passed-4b9560?logo=pestphp&logoColor=white)](#testing)
 [![License](https://img.shields.io/badge/license-MIT-8b8b8b)](#license)
 
 Español · [INVENTARIO](INVENTARIO.md) · [AGENTS](AGENTS.md)
@@ -135,23 +135,21 @@ cp .env.example .env
 # 4. Database schema
 php artisan migrate
 
-# 5. JS dependencies and production assets
+# 5. (Optional) Sample data: demo@timelock.dev / password
+php artisan db:seed
+
+# 6. JS dependencies and production assets
 npm install
 npm run build
 
-# 6. Start Vite with hot reload (in another terminal, or background this one)
+# 7. Start Vite with hot reload (in another terminal, or background this one)
 ./start.sh dev
 ```
 
-Open **http://localhost**.
+Open **http://localhost** and log in with `demo@timelock.dev` / `password`.
 
-The two Vite modes are also available as standalone scripts:
-
-```bash
-./start.sh dev      # Vite in development mode (:5173)
-./start.sh build    # Vite build (production assets)
-./start.sh          # shell in the container
-```
+Steps 2 to 5 are wrapped in `composer setup` and `composer seed`; the two Vite ones, in
+`./start.sh dev` and `./start.sh build`.
 
 > Vite **must** run inside the container: `compose.yaml` publishes port 5173 and mounts the project
 > at `/var/www/html`. `./start.sh dev` already takes care of that.
@@ -166,15 +164,25 @@ project volume). The supported path is Sail.
 
 ## Commands
 
-Since the host cannot execute PHP (see above), **every command goes inside the container**:
+Since the host cannot execute PHP (see above), the `composer.json` scripts delegate to Docker.
+These shortcuts work as-is from the project root:
+
+```bash
+composer setup      # install + .env + key:generate + migrate + npm install + build
+composer dev        # Vite with HMR (:5173)
+composer build      # Vite build
+composer test       # full Pest suite
+composer lint       # Pint in check mode (changes nothing)
+composer fix        # Pint applies the formatting
+composer typecheck  # tsc --noEmit
+composer seed       # php artisan db:seed
+```
+
+And to work inside the container directly:
 
 ```bash
 ./start.sh                                   # interactive shell (same as "docker compose exec")
-```
 
-or as one-liners:
-
-```bash
 # Tests
 docker compose exec laravel.test php artisan test
 docker compose exec laravel.test php artisan test --filter=StatsServiceTest
@@ -184,8 +192,8 @@ docker compose exec laravel.test ./vendor/bin/pint          # apply changes
 docker compose exec laravel.test ./vendor/bin/pint --test   # check only
 
 # Frontend
-docker compose exec laravel.test npx tsc --noEmit   # typecheck
-docker compose exec laravel.test npm run build      # production build
+docker compose exec laravel.test npm run typecheck
+docker compose exec laravel.test npm run build
 
 # Database
 docker compose exec laravel.test php artisan migrate
@@ -203,25 +211,37 @@ The usual Sail shortcuts also work inside a Sail session:
 ./vendor/bin/sail down
 ```
 
-**`composer test` and `php artisan` fail on the host** with
+**`php artisan` and any `composer <script>` that invokes PHP fail on the host** with
 `Composer detected issues in your platform: requires PHP >= 8.4.1`. That is not a bug: it is the
 reason the whole workflow goes through Docker.
+
+### Sample data
+
+`composer seed` creates a demo user through the same process as a real registration (4 default
+categories, 3 rewards) plus 14 days of history, points and a streak:
+
+```
+demo@timelock.dev / password
+```
+
+The seed is idempotent: if the user already exists, it changes nothing.
 
 ---
 
 ## Environment variables
 
-`.env.example` covers the essentials. These are the points worth knowing:
+``.env.example` covers everything needed, including `APP_TIMEZONE` and the AI block. These are the
+points worth knowing:
 
 | Variable | Why it matters |
 |---|---|
 | `APP_TIMEZONE` | **Required.** Postgres stores and interprets wall-clock time in this timezone, and the app serializes dates without offset (`Y-m-d\TH:i:s`). If it is missing or mismatched, the calendar and range filters shift by a day. |
-| `DB_*` | Host `pgsql` (the Compose service name), not `127.0.0.1`. |
+| `DB_*` | Host `pgsql` (the Compose service name), not `127.0.0.1`. The same credentials are passed to Postgres as `POSTGRES_*`, so they must match. |
 | `SESSION_DRIVER=file` · `CACHE_STORE=array` · `QUEUE_CONNECTION=sync` | The values the development environment uses. |
 | `APP_PORT` · `VITE_PORT` | Ports published by Compose (`80` and `5173` by default). |
-| `WWWUSER` · `WWWGROUP` | Used by `compose.yaml` for the container user. |
-| `AI_PROVIDER` + `<PROVIDER>_API_KEY` | Optional. Also configurable from the UI under *Settings → AI integration*. |
-| `APP_KEY` | Generated with `php artisan key:generate` inside the container. |
+| `WWWUSER` · `WWWGROUP` | Used by `compose.yaml` for the container user. On Linux, normally your `id -u` / `id -g`. |
+| `AI_PROVIDER` + `<PROVIDER>_API_KEY` | Optional. Also configurable from the UI under *Settings → AI integration*, which takes priority over these variables. |
+| `APP_KEY` | Generated with `composer setup` or `php artisan key:generate` inside the container. |
 
 ### AI providers
 
@@ -384,10 +404,10 @@ standard migrations.
 
 ## Testing
 
-Pest suite with **113 tests and 481 assertions**, all green.
+Pest suite with **119 tests and 503 assertions**, all green.
 
 ```bash
-docker compose exec laravel.test php artisan test
+composer test
 docker compose exec laravel.test php artisan test --filter=AuthServiceTest
 ```
 
@@ -399,19 +419,23 @@ tests/
 │   ├── Api/          AiApiTest · BootstrapApiTest · ExportApiTest · ProfileApiTest
 │   │                 RewardRedeemTest · StatsSummaryApiTest · SuggestionsApiTest
 │   ├── Auth/         AuthHttpTest
+│   ├── Database/     DatabaseSeederTest
 │   ├── Repositories/ ActivityRepositoryTest · CoreRepositoriesTest · UserRepositoryTest
 │   ├── Services/     AuthServiceTest · StatsServiceTest
 │   └── Web/          InertiaPagesTest
 └── Unit/Services/    AiServiceTest
 ```
 
-Two conventions worth knowing before writing a test:
+Three conventions worth knowing before writing a test:
 
 - `tests/Concerns/WithSessionClient.php` handles the awkward part: `authenticate()` registers a user
   through `AuthService` and returns the token, and `withTimelockSession()` injects it as an
   **unencrypted** cookie, which is what the middleware expects.
 - Repository and service tests rely on the global bindings in `tests/Pest.php`; API and web tests
   declare `uses(RefreshDatabase::class, WithSessionClient::class)` explicitly.
+- `tests/Feature/Database/DatabaseSeederTest.php` covers the factory and the seeder. It is not
+  decorative: both used to fail silently because the `users` table is not Laravel's default one, so
+  the test is the safety net for that divergence.
 
 ---
 
@@ -451,6 +475,7 @@ Principles that govern the code (`.specify/memory/constitution.md`):
 |---|---|
 | [`INVENTARIO.md`](INVENTARIO.md) | Full history of the migration from Next.js, with the state of every phase. |
 | [`AGENTS.md`](AGENTS.md) | Design system UI conventions (mandatory for agents and the team). |
+| [`CLAUDE.md`](CLAUDE.md) | Operational summary for agents: what to read, how to run commands, key rules. |
 | [`.specify/memory/constitution.md`](.specify/memory/constitution.md) | Non-negotiable principles and workflow. |
 | [`specs/`](specs/) | Specs, plans and tasks for each work cycle. |
 
@@ -461,9 +486,11 @@ Principles that govern the code (`.specify/memory/constitution.md`):
 What works and has been verified, and what does not yet:
 
 **Verified**
-- 113 Pest tests green (481 assertions).
-- `npx tsc --noEmit` clean.
+- 119 Pest tests green (503 assertions).
+- `composer lint` (Pint) clean across all 101 files.
+- `npm run typecheck` clean.
 - `npm run build` succeeds.
+- `composer seed` produces a loginable demo user, with categories, rewards and history.
 - Critical end-to-end flow verified with `curl` against the container: landing, login, register,
   full QR login (create → consume → session cookie), all dashboard pages, and `/api/bootstrap`
   without leaking `password_hash`.
@@ -471,17 +498,10 @@ What works and has been verified, and what does not yet:
 **Pending**
 - Manual light/dark visual validation in a browser (the capture protocol is not available in the
   current environment). There is a manual checklist in `INVENTARIO.md`.
-- 3 pre-existing Pint style issues, in `app/Services/StatsService.php`, `routes/web.php` and
-  `tests/Feature/Web/InertiaPagesTest.php`. They are cosmetic; `pint` fixes them.
 - `POST /api/profile/password` is implemented and tested on the backend, but the profile UI does not
   consume it yet.
 - The backend can create rewards (`POST /api/bootstrap` with `action: "reward"`), but there is no
-  interface for it; rewards are created directly in the database.
-- `database/seeders/DatabaseSeeder.php` and `database/factories/UserFactory.php` still carry
-  Laravel's default user schema and are not usable against the real `users` table. Seed manually or
-  through the API until they are updated.
-- `.env.example` does not yet include the AI variable block nor `APP_TIMEZONE`; they have to be
-  added by hand in `.env` if you want to use AI or adjust the timezone.
+  interface for it; rewards are created directly in the database or by the seed.
 
 ---
 

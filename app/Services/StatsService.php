@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Activity;
+use App\Models\Reward;
 use App\Models\User;
 use App\Repositories\Contracts\ActivityRepositoryInterface;
 use App\Repositories\Contracts\CategoryRepositoryInterface;
@@ -21,9 +22,8 @@ class StatsService
     ) {}
 
     /**
-     * @param array<int, string>|null $activityIds
-     * @param array<int, string>|null $categoryIds
-     *
+     * @param  array<int, string>|null  $activityIds
+     * @param  array<int, string>|null  $categoryIds
      * @return array<string, mixed>
      */
     public function summary(
@@ -79,8 +79,7 @@ class StatsService
 
     /**
      * @param  Collection<int, Activity>  $rows
-     * @param  Collection<int, \App\Models\Reward>  $redeemed
-     *
+     * @param  Collection<int, Reward>  $redeemed
      * @return array<string, int>
      */
     private function kpis(Collection $rows, Collection $redeemed): array
@@ -98,7 +97,6 @@ class StatsService
 
     /**
      * @param  Collection<int, Activity>  $rows
-     *
      * @return array<int, array<string, int|string>>
      */
     private function byCategory(Collection $rows): array
@@ -122,7 +120,6 @@ class StatsService
 
     /**
      * @param  Collection<int, Activity>  $rows
-     *
      * @return array<int, array<string, int|string>>
      */
     private function daily(Collection $rows): array
@@ -149,7 +146,6 @@ class StatsService
 
     /**
      * @param  Collection<int, Activity>  $rows
-     *
      * @return array<int, array<string, int|string>>
      */
     private function topActivities(Collection $rows): array
@@ -164,7 +160,6 @@ class StatsService
 
     /**
      * @param  Collection<int, Activity>  $rows
-     *
      * @return array<int, array<string, int>>
      */
     private function weekday(Collection $rows): array
@@ -193,7 +188,6 @@ class StatsService
 
     /**
      * @param  Collection<int, Activity>  $rows
-     *
      * @return array<string, mixed>
      */
     private function streak(Collection $rows, User $user, DateTimeInterface $from, DateTimeInterface $to): array
@@ -260,8 +254,7 @@ class StatsService
     }
 
     /**
-     * @param  Collection<int, \App\Models\Reward>  $redeemed
-     *
+     * @param  Collection<int, Reward>  $redeemed
      * @return array<int, array<string, int|string>>
      */
     private function rewardTrend(Collection $redeemed, DateTimeInterface $from, DateTimeInterface $to): array

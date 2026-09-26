@@ -12,7 +12,7 @@ Una app de productividad personal donde el tiempo que registras se convierte en 
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38bdf8?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![PHP](https://img.shields.io/badge/PHP-8.5-777bb4?logo=php&logoColor=white)](https://php.net)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169e1?logo=postgresql&logoColor=white)](https://postgresql.org)
-[![Pest](https://img.shields.io/badge/tests-Pest%20113%20passed-4b9560?logo=pestphp&logoColor=white)](#testing)
+[![Pest](https://img.shields.io/badge/tests-Pest%20119%20passed-4b9560?logo=pestphp&logoColor=white)](#testing)
 [![License](https://img.shields.io/badge/license-MIT-8b8b8b)](#licencia)
 
 [English](README.en.md) · [INVENTARIO](INVENTARIO.md) · [AGENTS](AGENTS.md)
@@ -135,23 +135,21 @@ cp .env.example .env
 # 4. Esquema de base de datos
 php artisan migrate
 
-# 5. Dependencias de JS y assets de producción
+# 5. (Opcional) Datos de ejemplo: demo@timelock.dev / password
+php artisan db:seed
+
+# 6. Dependencias de JS y assets de producción
 npm install
 npm run build
 
-# 6. Arrancar Vite con hot reload (en otra terminal, o deja esta en background)
+# 7. Arrancar Vite con hot reload (en otra terminal, o deja esta en background)
 ./start.sh dev
 ```
 
-Abre **http://localhost**.
+Abre **http://localhost** e inicia sesión con `demo@timelock.dev` / `password`.
 
-Los dos modos de Vite también se pueden lanzar como scripts sueltos:
-
-```bash
-./start.sh dev      # Vite en modo desarrollo (:5173)
-./start.sh build    # Vite build (assets de producción)
-./start.sh          # shell en el contenedor
-```
+Los pasos 2 a 5 están encapsulados en `composer setup` y `composer seed`; los dos de Vite, en
+`./start.sh dev` y `./start.sh build`.
 
 > Vite **debe** correr dentro del contenedor: `compose.yaml` publica el puerto 5173 y monta el
 > proyecto en `/var/www/html`. `./start.sh dev` ya se encarga de esto.
@@ -166,15 +164,25 @@ proyecto). El camino soportado es Sail.
 
 ## Comandos
 
-Como el host no puede ejecutar PHP (ver arriba), **todos los comandos van dentro del contenedor**:
+Como el host no puede ejecutar PHP (ver arriba), los scripts de `composer.json` delegan en Docker.
+Estos atajos funcionan tal cual desde la raíz del proyecto:
+
+```bash
+composer setup      # install + .env + key:generate + migrate + npm install + build
+composer dev        # Vite con HMR (:5173)
+composer build      # Vite build
+composer test       # suite Pest completa
+composer lint       # Pint en modo check (no modifica nada)
+composer fix        # Pint aplica el formato
+composer typecheck  # tsc --noEmit
+composer seed       # php artisan db:seed
+```
+
+Y para trabajar dentro del contenedor directamente:
 
 ```bash
 ./start.sh                                   # shell interactiva (equivalente a "docker compose exec")
-```
 
-o como one-liners:
-
-```bash
 # Tests
 docker compose exec laravel.test php artisan test
 docker compose exec laravel.test php artisan test --filter=StatsServiceTest
@@ -184,8 +192,8 @@ docker compose exec laravel.test ./vendor/bin/pint          # aplica cambios
 docker compose exec laravel.test ./vendor/bin/pint --test   # solo verifica
 
 # Frontend
-docker compose exec laravel.test npx tsc --noEmit   # typecheck
-docker compose exec laravel.test npm run build      # build de producción
+docker compose exec laravel.test npm run typecheck
+docker compose exec laravel.test npm run build
 
 # Base de datos
 docker compose exec laravel.test php artisan migrate
@@ -195,7 +203,7 @@ docker compose exec laravel.test php artisan migrate:fresh --seed
 docker compose exec laravel.test php artisan qr:prune   # purga tokens QR caducados
 ```
 
-Dentro de la sesión Sail también funcionan los atajos habituales:
+Dentro de una sesión Sail también funcionan los atajos habituales:
 
 ```bash
 ./vendor/bin/sail artisan test
@@ -203,25 +211,37 @@ Dentro de la sesión Sail también funcionan los atajos habituales:
 ./vendor/bin/sail down
 ```
 
-**`composer test` y `php artisan` fallan en el host** con
+**`php artisan` y `composer <script>` que invoquen PHP fallan en el host** con
 `Composer detected issues in your platform: requires PHP >= 8.4.1`. No es un bug: es la razón por la
 que todo el flujo pasa por Docker.
+
+### Datos de ejemplo
+
+`composer seed` crea un usuario demo con el mismo proceso que un registro real (4 categorías por
+defecto, 3 recompensas) más 14 días de historial, puntos y racha:
+
+```
+demo@timelock.dev / password
+```
+
+El seed es idempotente: si el usuario ya existe, no toca nada.
 
 ---
 
 ## Variables de entorno
 
-`.env.example` cubre lo esencial. Los puntos que conviene conocer:
+`.env.example` cubre todo lo necesario, incluido `APP_TIMEZONE` y el bloque de IA. Los puntos que
+conviene conocer:
 
 | Variable | Por qué importa |
 |---|---|
 | `APP_TIMEZONE` | **Obligatoria.** Postgres almacena e interpreta el wall-clock en esta zona horaria, y la app serializa fechas sin offset (`Y-m-d\TH:i:s`). Si falta o no coincide, el calendario y los filtros por rango se desplazan de día. |
-| `DB_*` | Host `pgsql` (el nombre del servicio en Compose), no `127.0.0.1`. |
+| `DB_*` | Host `pgsql` (el nombre del servicio en Compose), no `127.0.0.1`. Las mismas credenciales se pasan a Postgres como `POSTGRES_*`, así que deben coincidir. |
 | `SESSION_DRIVER=file` · `CACHE_STORE=array` · `QUEUE_CONNECTION=sync` | Valores que usa el entorno de desarrollo. |
 | `APP_PORT` · `VITE_PORT` | Puertos publicados por Compose (`80` y `5173` por defecto). |
-| `WWWUSER` · `WWWGROUP` | Los usa `compose.yaml` para el usuario del contenedor. |
-| `AI_PROVIDER` + `<PROVIDER>_API_KEY` | Opcionales. Configurables también desde la UI en *Ajustes → Integración IA*. |
-| `APP_KEY` | Se genera con `php artisan key:generate` dentro del contenedor. |
+| `WWWUSER` · `WWWGROUP` | Los usa `compose.yaml` para el usuario del contenedor. En Linux, normalmente tu `id -u` / `id -g`. |
+| `AI_PROVIDER` + `<PROVIDER>_API_KEY` | Opcionales. Configurables también desde la UI en *Ajustes → Integración IA*, que tiene prioridad sobre estas variables. |
+| `APP_KEY` | Se genera con `composer setup` o `php artisan key:generate` dentro del contenedor. |
 
 ### Proveedores de IA
 
@@ -383,10 +403,10 @@ que les corresponden. Además, Laravel crea `cache`, `cache_locks`, `jobs`, `job
 
 ## Testing
 
-Suite Pest con **113 tests y 481 aserciones**, todos en verde.
+Suite Pest con **119 tests y 503 aserciones**, todos en verde.
 
 ```bash
-docker compose exec laravel.test php artisan test
+composer test
 docker compose exec laravel.test php artisan test --filter=AuthServiceTest
 ```
 
@@ -398,19 +418,23 @@ tests/
 │   ├── Api/          AiApiTest · BootstrapApiTest · ExportApiTest · ProfileApiTest
 │   │                 RewardRedeemTest · StatsSummaryApiTest · SuggestionsApiTest
 │   ├── Auth/         AuthHttpTest
+│   ├── Database/     DatabaseSeederTest
 │   ├── Repositories/ ActivityRepositoryTest · CoreRepositoriesTest · UserRepositoryTest
 │   ├── Services/     AuthServiceTest · StatsServiceTest
 │   └── Web/          InertiaPagesTest
 └── Unit/Services/    AiServiceTest
 ```
 
-Dos convenciones que conviene conocer antes de escribir un test:
+Tres convenciones que conviene conocer antes de escribir un test:
 
 - `tests/Concerns/WithSessionClient.php` resuelve la parte incómoda: `authenticate()` registra un
   usuario vía `AuthService` y devuelve el token, y `withTimelockSession()` lo inyecta como cookie
   **sin cifrar**, que es lo que el middleware espera.
 - Los tests de repositorio y de servicio se apoyan en los bindings globales de `tests/Pest.php`;
   los de API y web declaran `uses(RefreshDatabase::class, WithSessionClient::class)` explícitamente.
+- `tests/Feature/Database/DatabaseSeederTest.php` cubre la factory y el seeder. No es decorativo:
+  ambos fallaban en silencio porque la tabla `users` no es la de Laravel por defecto, así que el
+  test es la red de seguridad de esa divergencia.
 
 ---
 
@@ -450,6 +474,7 @@ Principios que gobiernan el código (`.specify/memory/constitution.md`):
 |---|---|
 | [`INVENTARIO.md`](INVENTARIO.md) | Historia completa de la migración desde Next.js, con el estado de cada fase. |
 | [`AGENTS.md`](AGENTS.md) | Convenciones de UI del design system (obligatorias para agentes y para el equipo). |
+| [`CLAUDE.md`](CLAUDE.md) | Resumen operativo para agentes: qué leer, cómo correr comandos, reglas rápidas. |
 | [`.specify/memory/constitution.md`](.specify/memory/constitution.md) | Principios no negociables y workflow. |
 | [`specs/`](specs/) | Especificaciones, planes y tareas de cada ciclo de trabajo. |
 
@@ -460,9 +485,11 @@ Principios que gobiernan el código (`.specify/memory/constitution.md`):
 Lo que funciona y está verificado, y lo que todavía no:
 
 **Verificado**
-- 113 tests Pest en verde (481 aserciones).
-- `npx tsc --noEmit` sin errores.
+- 119 tests Pest en verde (503 aserciones).
+- `composer lint` (Pint) sin incidencias en los 101 ficheros.
+- `npm run typecheck` sin errores.
 - `npm run build` correcto.
+- `composer seed` genera un usuario demo loginable, con categorías, recompensas e historial.
 - Flujo crítico end-to-end comprobado por `curl` contra el contenedor: landing, login, register,
   login por QR completo (crear → consumir → cookie de sesión), todas las páginas del dashboard, y
   `/api/bootstrap` sin filtrar `password_hash`.
@@ -470,17 +497,10 @@ Lo que funciona y está verificado, y lo que todavía no:
 **Pendiente**
 - Validación visual manual de light/dark en navegador (el protocolo de captura no está disponible
   en el entorno actual). Hay un checklist manual en `INVENTARIO.md`.
-- 3 issues de estilo preexistentes de Pint, en `app/Services/StatsService.php`, `routes/web.php` y
-  `tests/Feature/Web/InertiaPagesTest.php`. Son cosméticos; `pint` los corrige.
 - `POST /api/profile/password` está implementado y testeado en el backend, pero la UI de perfil
   todavía no lo consume.
 - El backend admite crear recompensas (`POST /api/bootstrap` con `action: "reward"`), pero no hay
-  interfaz para ello; las recompensas se crean por base de datos.
-- `database/seeders/DatabaseSeeder.php` y `database/factories/UserFactory.php` conservan el esquema
-  de usuarios de Laravel por defecto y no son utilizables contra la tabla `users` real. Seeding
-  manual o por API hasta que se actualicen.
-- `.env.example` no incluye todavía el bloque de variables de IA ni `APP_TIMEZONE`; hay que
-  añadirlos a mano en el `.env` si se quiere usar IA o ajustar la zona horaria.
+  interfaz para ello; las recompensas se crean por base de datos o por seed.
 
 ---
 

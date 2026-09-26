@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\WithSessionClient;
 
@@ -7,7 +8,7 @@ uses(RefreshDatabase::class, WithSessionClient::class);
 
 beforeEach(function () {
     $this->token = $this->authenticate();
-    App\Models\User::where('email', $this->sessionEmail)->firstOrFail()->update(['onboarding_completed' => true]);
+    User::where('email', $this->sessionEmail)->firstOrFail()->update(['onboarding_completed' => true]);
     $this->withTimelockSession($this->token);
 });
 
