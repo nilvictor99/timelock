@@ -237,7 +237,7 @@ export default function Login() {
                 </CardContent>
             </Card>
             {showScanner && (
-                <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
+                <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/60 p-2 sm:p-4">
                     <div
                         ref={dialogRef}
                         role="dialog"
@@ -247,11 +247,11 @@ export default function Login() {
                         className="w-full max-w-md focus:outline-none"
                     >
                         <Card>
-                            <CardHeader>
+                            <CardHeader className="space-y-1 p-4 pb-2 sm:p-5 sm:pb-2">
                                 <CardTitle>{t('qrScannerTitle')}</CardTitle>
                                 <p className="text-sm text-muted-foreground">{t('scanInstructions')}</p>
                             </CardHeader>
-                            <CardContent className="space-y-4">
+                            <CardContent className="space-y-3 p-4 pt-0 sm:p-5 sm:pt-0">
                                 <QrScanner
                                     onDetected={handleScan}
                                     onError={(kind) => setScannerError(t(CAMERA_ERROR_KEYS[kind]))}

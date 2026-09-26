@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ImageUp, Loader2, RefreshCw, SwitchCamera, Zap } from 'lucide-react';
+import { ImageUp, Loader2, RefreshCw, SwitchCamera, Zap, ZapOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -136,6 +136,10 @@ export default function QrScanner({ onDetected, onError, onInvalidQr }: Props) {
                     devices[target].id,
                     {
                         fps: 15,
+                        // The video surface is sized to the container width, so a
+                        // square track is what keeps the shaded region and the
+                        // qrbox fully inside the box instead of clipped by it.
+                        aspectRatio: 1,
                         qrbox: (viewfinderWidth, viewfinderHeight) => qrboxFor(viewfinderWidth, viewfinderHeight),
                         disableFlip: true,
                     },
@@ -305,11 +309,11 @@ export default function QrScanner({ onDetected, onError, onInvalidQr }: Props) {
     const nextDevice = cameras[nextCameraIndex(activeIndex, cameras.length)];
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-2">
             <div className="relative">
                 <div
                     id={readerId}
-                    className="aspect-4/3 w-full overflow-hidden rounded-lg bg-black"
+                    className="aspect-square w-full overflow-hidden rounded-lg bg-black"
                     aria-label={t('camera.viewfinder')}
                 />
                 {status === 'starting' && (
@@ -320,49 +324,81 @@ export default function QrScanner({ onDetected, onError, onInvalidQr }: Props) {
                         </span>
                     </div>
                 )}
+                {cameras.length > 1 && (
+                    <span className="pointer-events-none absolute left-2 top-2 max-w-[70%] truncate rounded-full bg-black/60 px-2 py-1 text-[11px] text-white/90">
+                        {deviceLabel(activeDevice)}
+                    </span>
+                )}
             </div>
 
-            <p className="truncate text-center text-xs text-muted-foreground">
-                {t('camera.current')}: {deviceLabel(activeDevice)}
-            </p>
-
-            <div className="flex flex-wrap items-center justify-center gap-2">
-                {status === 'failed' && (
-                    <Button type="button" disabled={busy} onClick={retryCamera}>
-                        <RefreshCw aria-hidden="true" />
-                        {t('camera.retry')}
-                    </Button>
-                )}
-
-                {status !== 'failed' && cameras.length > 1 && (
+            <div className="flex flex-nowrap items-center justify-center gap-2">
+                {status === 'failed' ? (
                     <Button
                         type="button"
+                        size="icon"
                         variant="outline"
+                        className="size-11"
                         disabled={busy}
-                        onClick={switchCamera}
-                        aria-label={`${t('camera.switchTo')} ${deviceLabel(nextDevice)}`}
+                        onClick={retryCamera}
+                        aria-label={t('camera.retry')}
+                        title={t('camera.retry')}
                     >
-                        <SwitchCamera aria-hidden="true" />
-                        {t('camera.switch')}
+                        <RefreshCw className="size-5" aria-hidden="true" />
                     </Button>
-                )}
+                ) : (
+                    <>
+                        {cameras.length > 1 && (
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="outline"
+                                className="size-11"
+                                disabled={busy}
+                                onClick={switchCamera}
+                                aria-label={`${t('camera.switchTo')} ${deviceLabel(nextDevice)}`}
+                                title={`${t('camera.switchTo')} ${deviceLabel(nextDevice)}`}
+                            >
+                                <SwitchCamera className="size-5" aria-hidden="true" />
+                            </Button>
+                        )}
 
-                {torchSupported && (
-                    <Button
-                        type="button"
-                        variant={torchOn ? 'default' : 'outline'}
-                        aria-pressed={torchOn}
-                        onClick={() => void toggleTorch()}
-                    >
-                        <Zap aria-hidden="true" />
-                        {torchOn ? t('camera.torchOn') : t('camera.torchOff')}
-                    </Button>
-                )}
+                        {torchSupported && (
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant={torchOn ? 'default' : 'outline'}
+                                className="size-11"
+                                aria-pressed={torchOn}
+                                onClick={() => void toggleTorch()}
+                                aria-label={torchOn ? t('camera.torchOn') : t('camera.torchOff')}
+                                title={torchOn ? t('camera.torchOn') : t('camera.torchOff')}
+                            >
+                                {torchOn ? (
+                                    <Zap className="size-5" aria-hidden="true" />
+                                ) : (
+                                    <ZapOff className="size-5" aria-hidden="true" />
+                                )}
+                            </Button>
+                        )}
 
-                <Button type="button" variant="outline" disabled={decoding} onClick={() => fileInputRef.current?.click()}>
-                    <ImageUp aria-hidden="true" />
-                    {decoding ? t('camera.decoding') : t('camera.uploadImage')}
-                </Button>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            className="size-11"
+                            disabled={decoding}
+                            onClick={() => fileInputRef.current?.click()}
+                            aria-label={decoding ? t('camera.decoding') : t('camera.uploadImage')}
+                            title={decoding ? t('camera.decoding') : t('camera.uploadImage')}
+                        >
+                            {decoding ? (
+                                <Loader2 className="size-5 animate-spin" aria-hidden="true" />
+                            ) : (
+                                <ImageUp className="size-5" aria-hidden="true" />
+                            )}
+                        </Button>
+                    </>
+                )}
 
                 <input
                     ref={fileInputRef}
