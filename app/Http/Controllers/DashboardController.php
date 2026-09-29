@@ -310,4 +310,56 @@ class DashboardController extends Controller
             ]);
         }
     }
+
+    public function index(Request $request)
+    {
+        $tab = $request->query('tab');
+        $legacy = ['activities', 'suggestions', 'rewards', 'calendar', 'streak', 'export'];
+
+        if (is_string($tab) && in_array($tab, $legacy, true)) {
+            return redirect()->to('/dashboard/'.$tab);
+        }
+
+        return inertia('Dashboard/Index');
+    }
+
+    public function profile(Request $request)
+    {
+        return inertia('Dashboard/Profile', ['user' => $request->attributes->get('auth_user')]);
+    }
+
+    public function settings(Request $request)
+    {
+        return inertia('Dashboard/Settings', ['user' => $request->attributes->get('auth_user')]);
+    }
+
+    public function stats()
+    {
+        return inertia('Dashboard/Stats');
+    }
+
+    public function attendance()
+    {
+        return inertia('Dashboard/Attendance');
+    }
+
+    public function activities()
+    {
+        return inertia('Dashboard/Activities');
+    }
+
+    public function suggestions()
+    {
+        return inertia('Dashboard/Suggestions');
+    }
+
+    public function rewards()
+    {
+        return inertia('Dashboard/Rewards');
+    }
+
+    public function calendar()
+    {
+        return inertia('Dashboard/Calendar');
+    }
 }

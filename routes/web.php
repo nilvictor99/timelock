@@ -1,9 +1,7 @@
 <?php
 
 use App\Http\Controllers\AiController;
-use App\Http\Controllers\AttendanceConfigController;
 use App\Http\Controllers\AttendanceController;
-use App\Http\Controllers\AttendanceQrController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExportController;
@@ -30,7 +28,6 @@ Route::middleware('auth.session')->group(function () {
     Route::post('/auth/qr', [AuthController::class, 'qr'])
         ->middleware('throttle:'.config('qr.throttle.generate'))
         ->name('auth.qr');
-    Route::post('/auth/attendance/qr', [AttendanceQrController::class, 'generate'])->name('auth.attendance.qr');
 });
 
 Route::post('/auth/qr-login', [AuthController::class, 'qrLogin'])
@@ -46,37 +43,27 @@ Route::middleware('auth.session')->group(function () {
 
         return Inertia::render('Onboarding');
     })->name('onboarding');
-    Route::get('/dashboard/profile', fn (Request $request) => Inertia::render('Dashboard/Profile', ['user' => $request->attributes->get('auth_user')]))->name('dashboard.profile');
-    Route::get('/dashboard/settings', fn (Request $request) => Inertia::render('Dashboard/Settings', ['user' => $request->attributes->get('auth_user')]))->name('dashboard.settings');
-    Route::get('/dashboard/stats', fn () => Inertia::render('Dashboard/Stats'))->name('dashboard.stats');
-    Route::get('/dashboard/attendance', fn () => Inertia::render('Dashboard/Attendance'))->name('dashboard.attendance');
-    Route::get('/dashboard/activities', fn () => Inertia::render('Dashboard/Activities'))->name('dashboard.activities');
-    Route::get('/dashboard/suggestions', fn () => Inertia::render('Dashboard/Suggestions'))->name('dashboard.suggestions');
-    Route::get('/dashboard/rewards', fn () => Inertia::render('Dashboard/Rewards'))->name('dashboard.rewards');
-    Route::get('/dashboard/calendar', fn () => Inertia::render('Dashboard/Calendar'))->name('dashboard.calendar');
+});
+
+Route::middleware(['auth.session', 'onboarding'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/profile', [DashboardController::class, 'profile'])->name('dashboard.profile');
+    Route::get('/dashboard/settings', [DashboardController::class, 'settings'])->name('dashboard.settings');
+    Route::get('/dashboard/stats', [DashboardController::class, 'stats'])->name('dashboard.stats');
+    Route::get('/dashboard/attendance', [DashboardController::class, 'attendance'])->name('dashboard.attendance');
+    Route::get('/dashboard/activities', [DashboardController::class, 'activities'])->name('dashboard.activities');
+    Route::get('/dashboard/suggestions', [DashboardController::class, 'suggestions'])->name('dashboard.suggestions');
+    Route::get('/dashboard/rewards', [DashboardController::class, 'rewards'])->name('dashboard.rewards');
+    Route::get('/dashboard/calendar', [DashboardController::class, 'calendar'])->name('dashboard.calendar');
     Route::get('/dashboard/streak', fn () => redirect('/dashboard/stats'))->name('dashboard.streak');
     Route::get('/dashboard/export', fn () => redirect('/dashboard/stats'))->name('dashboard.export');
-    Route::get('/dashboard', function (Request $request) {
-        $tab = $request->query('tab');
-        $legacy = ['activities', 'suggestions', 'rewards', 'calendar', 'streak', 'export'];
+});
 
-        if (is_string($tab) && in_array($tab, $legacy, true)) {
-            return redirect()->to('/dashboard/'.$tab);
-        }
-
-        $user = $request->attributes->get('auth_user');
-        if ($user !== null && ! $user->onboarding_completed) {
-            return redirect()->route('onboarding');
-        }
-
-        return Inertia::render('Dashboard/Index');
-    })->name('dashboard');
-
+Route::middleware('auth.session')->group(function () {
     Route::get('/api/bootstrap', [DashboardController::class, 'bootstrap'])->name('api.bootstrap');
     Route::get('/api/stats/summary', [StatsController::class, 'summary'])->name('api.stats.summary');
     Route::get('/api/attendance', [AttendanceController::class, 'list'])->name('api.attendance.list');
     Route::post('/api/attendance/toggle', [AttendanceController::class, 'toggle'])->name('api.attendance.toggle');
-    Route::patch('/api/attendance/config', [AttendanceConfigController::class, 'update'])->name('api.attendance.config');
     Route::post('/api/bootstrap', [DashboardController::class, 'store']);
     Route::patch('/api/bootstrap', [DashboardController::class, 'patchActivity']);
     Route::delete('/api/bootstrap', [DashboardController::class, 'destroy']);

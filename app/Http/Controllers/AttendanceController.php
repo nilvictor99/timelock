@@ -2,39 +2,44 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Attendance\ListRequest;
+use App\Http\Requests\Attendance\ToggleRequest;
 use App\Services\AttendanceService;
-use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 class AttendanceController extends Controller
 {
     public function __construct(private readonly AttendanceService $service) {}
 
-    public function list(Request $request)
+    public function list(ListRequest $request)
     {
         $user = $request->attributes->get('auth_user');
-        $from = $request->query('from');
-        $to = $request->query('to');
-        $fromDt = $from ? \Carbon\Carbon::parse($from)->startOfDay() : \Carbon\Carbon::today();
-        $toDt = $to ? \Carbon\Carbon::parse($to)->endOfDay() : \Carbon\Carbon::today()->endOfDay();
+        $data = $request->validated();
+        $from = $data['from'] ?? null;
+        $to = $data['to'] ?? null;
+        $fromDt = $from ? Carbon::parse($from)->startOfDay() : Carbon::today();
+        $toDt = $to ? Carbon::parse($to)->endOfDay() : Carbon::today()->endOfDay();
         $items = $this->service->listByRange($user->id, $fromDt, $toDt);
         $summary = $this->service->summary($user->id, $fromDt, $toDt);
+
         return response()->json([
-            'items' => $items->map(fn($a)=>[
-                'id'=>$a->id,
-                'type'=>$a->type,
-                'started_at'=>$a->started_at,
-                'ended_at'=>$a->ended_at,
-                'duration_minutes'=>$a->duration_minutes,
+            'items' => $items->map(fn ($a) => [
+                'id' => $a->id,
+                'type' => $a->type,
+                'started_at' => $a->started_at,
+                'ended_at' => $a->ended_at,
+                'duration_minutes' => $a->duration_minutes,
             ]),
-            'summary'=>$summary,
+            'summary' => $summary,
         ]);
     }
 
-    public function toggle(Request $request)
+    public function toggle(ToggleRequest $request)
     {
         $user = $request->attributes->get('auth_user');
-        $type = $request->input('type');
+        $type = $request->validated()['type'];
         $attendance = $this->service->toggle($user->id, $type);
+
         return response()->json(['attendance' => $attendance]);
     }
 }
