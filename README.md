@@ -44,18 +44,17 @@ React, conservando paridad funcional y visual. Ese proceso está documentado pas
 | Feature | Dónde vive | Endpoint |
 |---|---|---|
 | Registro, login, logout | `Pages/{Register,Login}.tsx` | `POST /register` · `POST /login` · `POST /logout` |
-| **Login por QR** (generar, escanear, auto-renovar 60 s, descargar PNG/PDF) | `Pages/Login.tsx` · `Pages/Dashboard/Profile.tsx` · `Components/QrCode.tsx` · `Components/Auth/QrScanner.tsx` | `POST /auth/qr` · `POST /auth/qr-login` |
+| **Login por QR** (generar, escanear, caducidad y usos configurables, descargar PNG/PDF) | `Pages/Login.tsx` · `Components/Qr/QrLoginPanel.tsx` · `Components/QrCode.tsx` · `Components/Auth/QrScanner.tsx` | `POST /auth/qr` · `POST /auth/qr-login` |
 | Onboarding guiado (nombre, zona horaria, idioma, modo) | `Pages/Onboarding.tsx` | `POST /api/bootstrap` `{action:"onboarding"}` |
 | Crear / eliminar actividades | `Components/dashboard/ActivityForm.tsx` · `Pages/Dashboard/Activities.tsx` | `POST` / `DELETE /api/bootstrap` |
 | Completar actividad y ganar puntos (una sola vez) | `Pages/Dashboard/Index.tsx` · `Activities.tsx` | `PATCH /api/bootstrap` |
 | Timer flotante con pausa / snooze / finalizar | `Components/dashboard/FloatingTimer.tsx` | `PATCH /api/bootstrap` |
-| Puntos y rachas (actual, mejor, hitos 3→25 días) | `Pages/Dashboard/Streak.tsx` | `GET /api/bootstrap` |
 | Recompensas: listar y canjear | `Pages/Dashboard/Rewards.tsx` | `PATCH /api/rewards/{reward}` |
 | Sugerencias por IA o por reglas + "añadir a hoy" | `Pages/Dashboard/Suggestions.tsx` | `GET` / `POST /api/suggestions` |
-| Estadísticas: 4 gráficos, KPIs, panel de rachas y recompensas | `Pages/Dashboard/Stats.tsx` · `Components/stats/*` (9 componentes) | `GET /api/stats/summary` |
+| Estadísticas: 4 gráficos, KPIs, rachas (actual, mejor, hitos 3→25 días) y recompensas | `Pages/Dashboard/Stats.tsx` · `Components/stats/*` | `GET /api/stats/summary` |
 | Filtros de stats: rango de fechas + multi-select de actividades y categorías | `Components/stats/StatsFilters.tsx` · `@/components/ui/multi-select` | idem anterior (`?from&to&activities&categories`) |
 | Calendario día / semana / mes, sincronizado con la zona horaria | `Pages/Dashboard/Calendar.tsx` | `GET /api/bootstrap` |
-| Exportar datos (CSV, JSON curado, PDF) | `Pages/Dashboard/Export.tsx` · `Stats.tsx` | `GET /api/export` |
+| Exportar datos: CSV filtrado, JSON volcado completo y PDF descargable | `Pages/Dashboard/Stats.tsx` · `lib/export-pdf.ts` | `GET /api/export` |
 | Perfil con ~30 campos y autosave por campo | `Pages/Dashboard/Profile.tsx` | `POST /api/bootstrap` `{action:"settings"}` |
 | Subir avatar (jpg/png/webp, máx 5 MB) | `Pages/Dashboard/Profile.tsx` | `POST /api/profile/avatar` |
 | Cambiar email (confirma contraseña, invalida sesiones) | `Pages/Dashboard/Profile.tsx` | `POST /api/profile/email` |
@@ -201,7 +200,7 @@ docker compose exec laravel.test php artisan migrate
 docker compose exec laravel.test php artisan migrate:fresh --seed
 
 # Mantenimiento
-docker compose exec laravel.test php artisan qr:prune   # purga tokens QR caducados
+docker compose exec laravel.test php artisan qr:prune   # purga tokens QR caducados o agotados
 ```
 
 Dentro de una sesión Sail también funcionan los atajos habituales:
@@ -281,7 +280,7 @@ app/Models              7 modelos Eloquent con UUID
 Eloquent directo en controladores.** Esta regla es innegociable según la constitución del proyecto
 (`.specify/memory/constitution.md`).
 
-Servicios: `ActivityService`, `AiService`, `AuthService`, `CategoryService`, `QrLoginTokenService`,
+Servicios: `ActivityService`, `AiService`, `AuthService`, `CategoryService`,
 `RewardService`, `SessionService`, `StatsService`, `SuggestionService`, `UserService`.
 
 ### Autenticación
@@ -292,9 +291,16 @@ base64url). El middleware `auth.session` la resuelve, la añade a la lista de `e
 `EncryptCookies`, y refresca su expiración (30 días) cuando se cambia el email o la contraseña.
 Cambiar cualquiera de los dos invalida el resto de las sesiones del usuario.
 
-**Login por QR:** `AuthService::createQrToken` genera un token de un solo uso con TTL de 10 minutos y
-revoca los pendientes anteriores, de modo que cada QR nuevo anula al viejo. `POST /auth/qr-login`
-tiene throttle de 10/min por IP, y el comando programado `qr:prune` purga los caducados cada día.
+**Login por QR:** `AuthService::createQrToken` genera un token con la caducidad y el presupuesto de usos
+elegidos en `config/qr.php` (por defecto 10 minutos y 1 uso) y revoca los pendientes anteriores, de modo
+que cada QR nuevo anula al viejo: solo hay un QR activo. `expires_at` y `max_uses` son anulables, así que
+`never` + `unlimited` produce una credencial permanente; el panel muestra una advertencia explícita y el
+servicio escribe un `Log::warning` al crearla. `AuthService::loginWithQr` consume el token con un único
+`UPDATE` condicional (`uses_count < max_uses AND expires_at > now()`), de modo que la caducidad y el
+presupuesto se comprueban en la base de datos y no en PHP. `POST /auth/qr` acepta `{"ttl","uses"}` con las
+claves de `config/qr.php` (validadas por `GenerateQrRequest`); `POST /auth/qr-login` tiene throttle de
+30/min por IP y `/auth/qr` de 10/min. El comando programado `qr:prune` purga cada día los caducados y los
+agotados, y conserva los perpetuos.
 
 **Escáner QR multi-cámara:** `Components/Auth/QrScanner.tsx` arranca siempre por `deviceId`. Cuando la
 cámara pedida no existe, el navegador recurre a la que quiera en lugar de fallar, así que pedir
@@ -324,7 +330,7 @@ Tres niveles de componentes, con convención de capitalización como parte del c
 | Ruta | Contiene |
 |---|---|
 | `resources/js/components/ui/*` (minúsculas) | 18 primitivas shadcn/radix-nova: `badge`, `button`, `calendar`, `card`, `checkbox`, `date-picker`, `dialog`, `dropdown-menu`, `input`, `multi-select`, `popover`, `select`, `separator`, `skeleton`, `tabs`, `textarea`, `time-picker`, `tooltip`. |
-| `resources/js/Components/<dominio>/*` (mayúsculas) | Componentes de dominio: `dashboard/` (8), `stats/` (9), `Auth/QrScanner`, `QrCode`. Encapsulan la lógica del módulo. |
+| `resources/js/Components/<dominio>/*` (mayúsculas) | Componentes de dominio: `dashboard/` (8), `stats/` (9), `Auth/QrScanner`, `Qr/QrLoginPanel`, `QrCode`. Encapsulan la lógica del módulo. |
 | `resources/js/Pages/*` | 14 páginas Inertia. **Solo orquestan**: piden datos, delegan en componentes, manejan estado de formulario. |
 
 - **Tokens obligatorios.** Todo color y estado visual sale de `resources/css/app.css` (Tailwind v4
@@ -375,10 +381,10 @@ por reglas en lugar de fallar.
 |---|---|---|
 | GET | `/onboarding` | Wizard inicial; redirige al dashboard si ya se completó |
 | GET | `/dashboard` | Home; redirige `?tab=` legacy a su ruta de módulo |
-| GET | `/dashboard/{activities,calendar,export,profile,rewards,settings,stats,streak,suggestions}` | Páginas de módulo |
+| GET | `/dashboard/{activities,attendance,calendar,profile,rewards,settings,stats,suggestions}` | Páginas de módulo |
 | GET | `/auth/me` | Usuario de la sesión actual |
-| POST | `/auth/qr` | Genera token QR |
-| POST | `/auth/qr-login` | Consume token QR (`throttle:10,1`) |
+| POST | `/auth/qr` | Genera token QR. Body opcional `{"ttl","uses"}` (`throttle:10,1`) |
+| POST | `/auth/qr-login` | Consume token QR respetando caducidad y presupuesto de usos (`throttle:30,1`) |
 
 **API**
 
@@ -390,7 +396,7 @@ por reglas en lugar de fallar.
 | DELETE | `/api/bootstrap` | Borrar actividad (`?id=`) o la cuenta (`{email, confirmation}`) |
 | PATCH | `/api/rewards/{reward}` | Canjear recompensa |
 | GET | `/api/stats/summary` | Agregación de estadísticas con filtros `from`, `to`, `activities`, `categories` |
-| GET | `/api/export` | `format=csv` (por defecto) o `format=json`; filtros `from` / `to` |
+| GET | `/api/export` | `format=csv` (por defecto, respeta `from` / `to` / `activities` / `categories`) o `format=json` (volcado completo sin filtros) |
 | GET · POST | `/api/suggestions` | Listar recientes · generar / regenerar |
 | POST | `/api/ai/test-connection` | Prueba la configuración de IA |
 | POST | `/api/profile/avatar` | Subida de avatar |
@@ -413,7 +419,7 @@ de la cookie `XSRF-TOKEN` en cada petición no-GET. Sin ella, Laravel responde 4
 | `categories` | `unique(user_id, name)`, `color`, `points_per_hour`. |
 | `activities` | `title`, `date`, `start_at`, `end_at`, `status`, `points`, `is_free`, `completed_at`, `category_id`. Índices en `(user_id, date)` y `(user_id, start_at)`. |
 | `rewards` | `title`, `cost`, `redeemed_at`. |
-| `qr_login_tokens` | `token_hash` único, `expires_at`, `used_at` (un solo uso). |
+| `qr_login_tokens` | `token_hash` único, `expires_at` (anulable = perpetuo), `max_uses` (anulable = sin límite), `uses_count`, `used_at`. |
 | `suggestions` | `title`, `category`, `duration`, `reason`, `points`, `source` (`ai` \| `rule`). |
 
 Los "enums" (`PLANNED`/`COMPLETED`, `SYNCHRONOUS`/`FREE`, `LIGHT`/`DARK`/`SYSTEM`) son columnas de

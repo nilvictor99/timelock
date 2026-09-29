@@ -40,8 +40,6 @@ it('serves the module pages as standalone routes', function () {
         'suggestions' => 'Dashboard/Suggestions',
         'rewards' => 'Dashboard/Rewards',
         'calendar' => 'Dashboard/Calendar',
-        'streak' => 'Dashboard/Streak',
-        'export' => 'Dashboard/Export',
     ];
 
     foreach ($modules as $slug => $component) {
@@ -53,8 +51,12 @@ it('serves the module pages as standalone routes', function () {
 
 it('redirects legacy tab query links to their module routes', function () {
     $this->get('/dashboard?tab=activities')->assertRedirect('/dashboard/activities');
-    $this->get('/dashboard?tab=export')->assertRedirect('/dashboard/export');
     $this->get('/dashboard?tab=home')->assertOk();
+});
+
+it('redirects the retired export and streak modules to statistics', function () {
+    $this->get('/dashboard/export')->assertRedirect('/dashboard/stats');
+    $this->get('/dashboard/streak')->assertRedirect('/dashboard/stats');
 });
 
 it('redirects an unfinished onboarding user away from the dashboard', function () {

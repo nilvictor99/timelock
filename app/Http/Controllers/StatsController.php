@@ -2,15 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Concerns\ParsesStatsFilters;
 use App\Services\StatsService;
-use DateTimeImmutable;
-use DateTimeZone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class StatsController extends Controller
 {
-    private const MAX_FILTERS = 100;
+    use ParsesStatsFilters;
 
     public function __construct(private readonly StatsService $stats) {}
 
@@ -36,50 +35,5 @@ class StatsController extends Controller
                 $this->csvIds($request->query('categories')),
             ),
         );
-    }
-
-    /**
-     * @return array{0: DateTimeImmutable, 1: DateTimeImmutable}|null
-     */
-    private function parseRange(mixed $from, mixed $to): ?array
-    {
-        if (! $this->isDateString($from) || ! $this->isDateString($to)) {
-            return null;
-        }
-
-        $fromDate = new DateTimeImmutable($from.'T00:00:00.000Z', new DateTimeZone('UTC'));
-        $toDate = new DateTimeImmutable($to.'T23:59:59.999Z', new DateTimeZone('UTC'));
-
-        return $fromDate <= $toDate ? [$fromDate, $toDate] : null;
-    }
-
-    private function isDateString(mixed $value): bool
-    {
-        if (! is_string($value)) {
-            return false;
-        }
-
-        try {
-            return (new DateTimeImmutable($value, new DateTimeZone('UTC')))->format('Y-m-d') === $value;
-        } catch (\Throwable) {
-            return false;
-        }
-    }
-
-    /**
-     * @return array<int, string>|null
-     */
-    private function csvIds(mixed $value): ?array
-    {
-        if ($value === null) {
-            return null;
-        }
-        if (! is_string($value) || $value === '') {
-            return [];
-        }
-
-        $ids = array_values(array_unique(array_filter(array_map('trim', explode(',', $value)), fn ($id) => $id !== '')));
-
-        return array_slice($ids, 0, self::MAX_FILTERS);
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Activity;
+use App\Models\Category;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\WithSessionClient;
@@ -73,8 +74,104 @@ it('rejects an invalid date range', function () {
         ->assertJson(['error' => 'Rango de fechas no válido.']);
 });
 
+it('filters the csv by activity ids', function () {
+    $user = User::where('email', $this->sessionEmail)->firstOrFail();
+
+    $kept = makeActivity($user, 'Deep work');
+    makeActivity($user, 'Gym');
+
+    $csv = $this->get('/api/export?format=csv&activities='.$kept->id)
+        ->assertOk()
+        ->getContent();
+
+    expect($csv)->toContain('Deep work')->not->toContain('Gym');
+});
+
+it('filters the csv by category ids', function () {
+    $user = User::where('email', $this->sessionEmail)->firstOrFail();
+
+    $work = Category::create(['user_id' => $user->id, 'name' => 'Filtro Trabajo', 'color' => '#3b82f6']);
+    $rest = Category::create(['user_id' => $user->id, 'name' => 'Filtro Descanso', 'color' => '#22c55e']);
+
+    makeActivity($user, 'Reunión', $work->id);
+    makeActivity($user, 'Paseo', $rest->id);
+
+    $csv = $this->get('/api/export?format=csv&categories='.$work->id)
+        ->assertOk()
+        ->getContent();
+
+    expect($csv)->toContain('Reunión', 'Filtro Trabajo')->not->toContain('Paseo', 'Filtro Descanso');
+});
+
+it('returns an empty csv when a filter matches nothing', function () {
+    $user = User::where('email', $this->sessionEmail)->firstOrFail();
+    makeActivity($user, 'Gym');
+
+    $csv = $this->get('/api/export?format=csv&categories='.Category::create([
+        'user_id' => $user->id,
+        'name' => 'Sin uso',
+        'color' => '#000000',
+    ])->id)
+        ->assertOk()
+        ->getContent();
+
+    expect(explode("\n", trim($csv)))->toHaveCount(1)
+        ->and(trim($csv))->toBe('Actividad,Categoria,Inicio,Fin,Estado,Puntos');
+});
+
+it('ignores filters on the json dump', function () {
+    $user = User::where('email', $this->sessionEmail)->firstOrFail();
+    makeActivity($user, 'Deep work');
+
+    $data = $this->getJson('/api/export?format=json&activities=nonexistent&categories=nonexistent')
+        ->assertOk()
+        ->json();
+
+    expect($data['activities'])->toHaveCount(1);
+});
+
+it('treats an empty id list as no filter', function () {
+    $user = User::where('email', $this->sessionEmail)->firstOrFail();
+    makeActivity($user, 'Deep work');
+
+    $csv = $this->get('/api/export?format=csv&activities=&categories=')
+        ->assertOk()
+        ->getContent();
+
+    expect($csv)->toContain('Deep work');
+});
+
+it('ignores duplicated and excessive id lists', function () {
+    $user = User::where('email', $this->sessionEmail)->firstOrFail();
+    $kept = makeActivity($user, 'Deep work');
+    makeActivity($user, 'Gym');
+
+    $ids = array_merge([$kept->id, $kept->id], range(1, 150));
+
+    $csv = $this->get('/api/export?format=csv&activities='.implode(',', $ids))
+        ->assertOk()
+        ->getContent();
+
+    expect($csv)->toContain('Deep work')->not->toContain('Gym');
+});
+
 it('requires a session to export', function () {
     $this->withTimelockSession('token-inexistente')
         ->getJson('/api/export')
         ->assertStatus(401);
 });
+
+function makeActivity(User $user, string $title, ?string $categoryId = null): Activity
+{
+    return Activity::create([
+        'user_id' => $user->id,
+        'category_id' => $categoryId,
+        'title' => $title,
+        'date' => now()->toDateString(),
+        'start_at' => now(),
+        'end_at' => now()->addHour(),
+        'status' => 'COMPLETED',
+        'points' => 5,
+        'is_free' => false,
+    ]);
+}

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { CalendarDays, Download, RotateCcw } from 'lucide-react';
+import { CalendarDays, Download, FileJson, Loader2, RotateCcw } from 'lucide-react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +16,7 @@ import { StreakPanel } from '@/Components/stats/StreakPanel';
 import type { StatsSummary } from '@/Components/stats/types';
 import { useI18n } from '@/lib/i18n';
 import { apiGet } from '@/lib/api';
+import { downloadUserStatePdf } from '@/lib/export-pdf';
 
 function endOfDay(date: Date) {
     const result = new Date(date);
@@ -79,7 +80,27 @@ export default function Stats() {
     const hasData = Boolean(
         summary && (summary.kpis.completed > 0 || summary.kpis.rewardsRedeemed > 0 || summary.category.length > 0),
     );
-    const exportQuery = `format=csv&from=${encodeURIComponent(dateKey(from))}&to=${encodeURIComponent(dateKey(to))}`;
+    const exportQuery = (() => {
+        const params = new URLSearchParams({ format: 'csv', from: dateKey(from), to: dateKey(to) });
+        if (selectedActivities.length) params.set('activities', selectedActivities.join(','));
+        if (selectedCategories.length) params.set('categories', selectedCategories.join(','));
+        return params.toString();
+    })();
+
+    const [exportingPdf, setExportingPdf] = React.useState(false);
+    const [exportError, setExportError] = React.useState('');
+
+    const downloadPdf = async () => {
+        setExportingPdf(true);
+        setExportError('');
+        try {
+            await downloadUserStatePdf(t);
+        } catch {
+            setExportError(t('statsExportError'));
+        } finally {
+            setExportingPdf(false);
+        }
+    };
 
     return (
         <DashboardLayout>
@@ -157,11 +178,16 @@ export default function Stats() {
                         <Download size={16} />
                         {t('statsExportCsv')}
                     </Button>
-                    <Button variant="outline" onClick={() => window.print()}>
-                        <Download size={16} />
+                    <Button variant="outline" onClick={() => void downloadPdf()} disabled={exportingPdf}>
+                        {exportingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                         {t('statsExportPdf')}
                     </Button>
+                    <Button variant="outline" onClick={() => (window.location.href = '/api/export?format=json')}>
+                        <FileJson size={16} />
+                        {t('statsExportJson')}
+                    </Button>
                 </div>
+                {exportError ? <p className="mt-2 text-sm text-danger">{exportError}</p> : null}
             </div>
         </DashboardLayout>
     );

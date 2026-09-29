@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Concerns\InteractsWithSessionCookie;
+use App\Http\Requests\GenerateQrRequest;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Models\User;
@@ -100,7 +101,7 @@ class AuthController extends Controller
         return response()->json(['user' => $user]);
     }
 
-    public function qr(Request $request): JsonResponse
+    public function qr(GenerateQrRequest $request): JsonResponse
     {
         $user = $request->attributes->get('auth_user');
 
@@ -108,10 +109,17 @@ class AuthController extends Controller
             return response()->json(['error' => 'UNAUTHORIZED'], 401);
         }
 
-        $qr = $this->auth->createQrToken($user);
+        $qr = $this->auth->createQrToken($user, $request->ttlKey(), $request->useKey());
 
         return response()
-            ->json(['token' => $qr['token'], 'expiresAt' => $qr['expiresAt']->toIso8601String()])
+            ->json([
+                'token' => $qr['token'],
+                'expiresAt' => $qr['expiresAt']?->toIso8601String(),
+                'maxUses' => $qr['maxUses'],
+                'ttl' => $qr['ttlKey'],
+                'uses' => $qr['useKey'],
+                'perpetual' => $qr['perpetual'],
+            ])
             ->header('Cache-Control', 'no-store');
     }
 

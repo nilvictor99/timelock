@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import QrScanner from '@/Components/Auth/QrScanner';
 import { useI18n } from '@/lib/i18n';
 import { apiPost } from '@/lib/api';
-import type { CameraErrorKind } from '@/lib/camera';
+import type { CameraErrorKind, ScanFileErrorKind } from '@/lib/camera';
 
 const QR_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
@@ -21,6 +21,13 @@ const CAMERA_ERROR_KEYS: Record<CameraErrorKind, string> = {
     unknown: 'camera.error.unknown',
 };
 
+const SCAN_FILE_ERROR_KEYS: Record<Exclude<ScanFileErrorKind, 'not-found'>, string> = {
+    'invalid-file': 'qrScanError.invalidFile',
+    busy: 'qrScanError.busy',
+    'load-failed': 'qrScanError.failed',
+    unknown: 'qrScanError.failed',
+};
+
 function normalizeQrValue(value: string): string | null {
     const trimmed = value.trim();
     if (QR_TOKEN_PATTERN.test(trimmed)) return trimmed;
@@ -31,6 +38,17 @@ function normalizeQrValue(value: string): string | null {
         return QR_TOKEN_PATTERN.test(token) ? token : null;
     } catch {
         return null;
+    }
+}
+
+/** The backend only ever redirects within the app, so an absolute URL is a bug. */
+function safeRedirect(target: string | undefined): string {
+    if (!target) return '/dashboard';
+    try {
+        const parsed = new URL(target, window.location.origin);
+        return parsed.origin === window.location.origin ? `${parsed.pathname}${parsed.search}` : '/dashboard';
+    } catch {
+        return '/dashboard';
     }
 }
 
@@ -63,12 +81,30 @@ export default function Login() {
             setError(t('qrScanError'));
             return;
         }
+
+        let redirect: string;
         try {
             const result = await apiPost<{ ok: boolean; redirect?: string }>('/auth/qr-login', { token });
-            router.visit(result.redirect ?? '/dashboard');
+            redirect = safeRedirect(result.redirect);
         } catch (cause) {
             setLoading(false);
             setError(cause instanceof Error ? cause.message : t('qrScanError'));
+            return;
+        }
+
+        // router.visit is fire-and-forget, so the button would stay disabled
+        // forever if the swap threw. Reset on both outcomes and let the page
+        // change be the only thing the user sees on success.
+        try {
+            await new Promise<void>((resolve) => {
+                router.visit(redirect, {
+                    onFinish: () => resolve(),
+                    onError: () => resolve(),
+                    onSuccess: () => resolve(),
+                });
+            });
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -256,6 +292,7 @@ export default function Login() {
                                     onDetected={handleScan}
                                     onError={(kind) => setScannerError(t(CAMERA_ERROR_KEYS[kind]))}
                                     onInvalidQr={() => setScannerError(t('qrScanError'))}
+                                    onScanFileError={(kind) => setScannerError(t(SCAN_FILE_ERROR_KEYS[kind]))}
                                 />
                                 {scannerError && (
                                     <p className="rounded-md border border-danger p-3 text-sm text-danger">{scannerError}</p>

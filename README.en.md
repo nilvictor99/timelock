@@ -44,18 +44,17 @@ preserving functional and visual parity. That process is documented step by step
 | Feature | Where it lives | Endpoint |
 |---|---|---|
 | Register, login, logout | `Pages/{Register,Login}.tsx` | `POST /register` · `POST /login` · `POST /logout` |
-| **QR login** (generate, scan, auto-renew every 60 s, download PNG/PDF) | `Pages/Login.tsx` · `Pages/Dashboard/Profile.tsx` · `Components/QrCode.tsx` · `Components/Auth/QrScanner.tsx` | `POST /auth/qr` · `POST /auth/qr-login` |
+| **QR login** (generate, scan, configurable lifetime and use budget, download PNG/PDF) | `Pages/Login.tsx` · `Components/Qr/QrLoginPanel.tsx` · `Components/QrCode.tsx` · `Components/Auth/QrScanner.tsx` | `POST /auth/qr` · `POST /auth/qr-login` |
 | Guided onboarding (name, timezone, language, mode) | `Pages/Onboarding.tsx` | `POST /api/bootstrap` `{action:"onboarding"}` |
 | Create / delete activities | `Components/dashboard/ActivityForm.tsx` · `Pages/Dashboard/Activities.tsx` | `POST` / `DELETE /api/bootstrap` |
 | Complete an activity and earn points (only once) | `Pages/Dashboard/Index.tsx` · `Activities.tsx` | `PATCH /api/bootstrap` |
 | Floating timer with pause / snooze / finalize | `Components/dashboard/FloatingTimer.tsx` | `PATCH /api/bootstrap` |
-| Points and streaks (current, best, milestones 3→25 days) | `Pages/Dashboard/Streak.tsx` | `GET /api/bootstrap` |
 | Rewards: list and redeem | `Pages/Dashboard/Rewards.tsx` | `PATCH /api/rewards/{reward}` |
 | AI or rule-based suggestions + "add to today" | `Pages/Dashboard/Suggestions.tsx` | `GET` / `POST /api/suggestions` |
-| Statistics: 4 charts, KPIs, rewards and streak panels | `Pages/Dashboard/Stats.tsx` · `Components/stats/*` (9 components) | `GET /api/stats/summary` |
+| Statistics: 4 charts, KPIs, rewards and streaks (current, best, milestones 3→25 days) | `Pages/Dashboard/Stats.tsx` · `Components/stats/*` | `GET /api/stats/summary` |
 | Stats filters: date range + multi-select of activities and categories | `Components/stats/StatsFilters.tsx` · `@/components/ui/multi-select` | same endpoint (`?from&to&activities&categories`) |
 | Day / week / month calendar, synced to the timezone | `Pages/Dashboard/Calendar.tsx` | `GET /api/bootstrap` |
-| Export data (CSV, curated JSON, PDF) | `Pages/Dashboard/Export.tsx` · `Stats.tsx` | `GET /api/export` |
+| Export data: filtered CSV, full JSON dump and downloadable PDF | `Pages/Dashboard/Stats.tsx` · `lib/export-pdf.ts` | `GET /api/export` |
 | Profile with ~30 fields, autosaved per field | `Pages/Dashboard/Profile.tsx` | `POST /api/bootstrap` `{action:"settings"}` |
 | Avatar upload (jpg/png/webp, max 5 MB) | `Pages/Dashboard/Profile.tsx` | `POST /api/profile/avatar` |
 | Change email (confirms password, invalidates sessions) | `Pages/Dashboard/Profile.tsx` | `POST /api/profile/email` |
@@ -201,7 +200,7 @@ docker compose exec laravel.test php artisan migrate
 docker compose exec laravel.test php artisan migrate:fresh --seed
 
 # Maintenance
-docker compose exec laravel.test php artisan qr:prune   # purges expired QR tokens
+docker compose exec laravel.test php artisan qr:prune   # purges expired or exhausted QR tokens
 ```
 
 The usual Sail shortcuts also work inside a Sail session:
@@ -281,7 +280,7 @@ app/Models              7 Eloquent models with UUIDs
 directly in controllers.** This rule is non-negotiable per the project constitution
 (`.specify/memory/constitution.md`).
 
-Services: `ActivityService`, `AiService`, `AuthService`, `CategoryService`, `QrLoginTokenService`,
+Services: `ActivityService`, `AiService`, `AuthService`, `CategoryService`,
 `RewardService`, `SessionService`, `StatsService`, `SuggestionService`, `UserService`.
 
 ### Authentication
@@ -292,9 +291,16 @@ in base64url). The `auth.session` middleware resolves it, it is listed in the `e
 `EncryptCookies`, and its expiry (30 days) is refreshed when the email or password changes. Changing
 either one invalidates the user's other sessions.
 
-**QR login:** `AuthService::createQrToken` generates a single-use token with a 10-minute TTL and
-revokes any previous pending ones, so every new QR invalidates the old one. `POST /auth/qr-login`
-is throttled to 10/min per IP, and the scheduled `qr:prune` command purges expired tokens daily.
+**QR login:** `AuthService::createQrToken` generates a token with the lifetime and use budget chosen in
+`config/qr.php` (10 minutes and 1 use by default) and revokes any previous pending ones, so every new QR
+invalidates the old one: only one QR is ever active. `expires_at` and `max_uses` are nullable, so
+`never` + `unlimited` yields a permanent credential; the panel shows an explicit warning and the service
+writes a `Log::warning` when creating it. `AuthService::loginWithQr` consumes the token with a single
+conditional `UPDATE` (`uses_count < max_uses AND expires_at > now()`), so the deadline and the budget are
+enforced in the database rather than in PHP. `POST /auth/qr` accepts `{"ttl","uses"}` using the keys in
+`config/qr.php` (validated by `GenerateQrRequest`); `POST /auth/qr-login` is throttled to 30/min per IP
+and `/auth/qr` to 10/min. The scheduled `qr:prune` command clears expired and exhausted tokens daily and
+keeps perpetual ones.
 
 **Multi-camera QR scanner:** `Components/Auth/QrScanner.tsx` always starts by `deviceId`. When the
 requested camera is absent the browser silently falls back to one of its own choosing rather than
@@ -325,7 +331,7 @@ Three component levels, where the capitalization convention is part of the contr
 | Path | Contains |
 |---|---|
 | `resources/js/components/ui/*` (lowercase) | 18 shadcn/radix-nova primitives: `badge`, `button`, `calendar`, `card`, `checkbox`, `date-picker`, `dialog`, `dropdown-menu`, `input`, `multi-select`, `popover`, `select`, `separator`, `skeleton`, `tabs`, `textarea`, `time-picker`, `tooltip`. |
-| `resources/js/Components/<domain>/*` (uppercase) | Domain components: `dashboard/` (8), `stats/` (9), `Auth/QrScanner`, `QrCode`. They encapsulate each module's logic. |
+| `resources/js/Components/<domain>/*` (uppercase) | Domain components: `dashboard/` (8), `stats/` (9), `Auth/QrScanner`, `Qr/QrLoginPanel`, `QrCode`. They encapsulate each module's logic. |
 | `resources/js/Pages/*` | 14 Inertia pages. **They only orchestrate**: they fetch data, delegate to components and handle form state. |
 
 - **Tokens are mandatory.** Every color and visual state comes from `resources/css/app.css`
@@ -377,10 +383,10 @@ with everything else.
 |---|---|---|
 | GET | `/onboarding` | First-run wizard; redirects to the dashboard once completed |
 | GET | `/dashboard` | Home; redirects legacy `?tab=` links to their module route |
-| GET | `/dashboard/{activities,calendar,export,profile,rewards,settings,stats,streak,suggestions}` | Module pages |
+| GET | `/dashboard/{activities,attendance,calendar,profile,rewards,settings,stats,suggestions}` | Module pages |
 | GET | `/auth/me` | Current session user |
-| POST | `/auth/qr` | Generates a QR token |
-| POST | `/auth/qr-login` | Consumes a QR token (`throttle:10,1`) |
+| POST | `/auth/qr` | Generates a QR token. Optional body `{"ttl","uses"}` (`throttle:10,1`) |
+| POST | `/auth/qr-login` | Consumes a QR token honouring lifetime and use budget (`throttle:30,1`) |
 
 **API**
 
@@ -392,7 +398,7 @@ with everything else.
 | DELETE | `/api/bootstrap` | Deletes an activity (`?id=`) or the account (`{email, confirmation}`) |
 | PATCH | `/api/rewards/{reward}` | Redeems a reward |
 | GET | `/api/stats/summary` | Stats aggregation with `from`, `to`, `activities`, `categories` filters |
-| GET | `/api/export` | `format=csv` (default) or `format=json`; `from` / `to` filters |
+| GET | `/api/export` | `format=csv` (default, honours `from` / `to` / `activities` / `categories`) or `format=json` (full dump, unfiltered) |
 | GET · POST | `/api/suggestions` | List recent · generate / regenerate |
 | POST | `/api/ai/test-connection` | Tests the AI configuration |
 | POST | `/api/profile/avatar` | Avatar upload |
@@ -415,7 +421,7 @@ the `XSRF-TOKEN` cookie on every non-GET request. Without it, Laravel answers 41
 | `categories` | `unique(user_id, name)`, `color`, `points_per_hour`. |
 | `activities` | `title`, `date`, `start_at`, `end_at`, `status`, `points`, `is_free`, `completed_at`, `category_id`. Indexes on `(user_id, date)` and `(user_id, start_at)`. |
 | `rewards` | `title`, `cost`, `redeemed_at`. |
-| `qr_login_tokens` | Unique `token_hash`, `expires_at`, `used_at` (single use). |
+| `qr_login_tokens` | Unique `token_hash`, nullable `expires_at` (perpetual), nullable `max_uses` (unlimited), `uses_count`, `used_at`. |
 | `suggestions` | `title`, `category`, `duration`, `reason`, `points`, `source` (`ai` \| `rule`). |
 
 The "enums" (`PLANNED`/`COMPLETED`, `SYNCHRONOUS`/`FREE`, `LIGHT`/`DARK`/`SYSTEM`) are text columns

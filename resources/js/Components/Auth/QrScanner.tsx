@@ -5,12 +5,16 @@ import { useI18n } from '@/lib/i18n';
 import {
     classifyCamera,
     classifyCameraError,
+    classifyScanFileError,
     nextCameraIndex,
     pickInitialCamera,
     qrboxFor,
+    safeStop,
+    shouldRestartCamera,
     type CameraDeviceInfo,
     type CameraErrorKind,
     type Facing,
+    type ScanFileErrorKind,
 } from '@/lib/camera';
 
 type QrScannerLib = typeof import('html5-qrcode');
@@ -20,14 +24,34 @@ type Props = {
     onDetected: (value: string) => boolean;
     onError: (kind: CameraErrorKind) => void;
     onInvalidQr: () => void;
+    onScanFileError: (kind: Exclude<ScanFileErrorKind, 'not-found'>) => void;
 };
 
 type Status = 'starting' | 'running' | 'failed';
 
-export default function QrScanner({ onDetected, onError, onInvalidQr }: Props) {
+/**
+ * One retry: enough to ride out a camera teardown that has not settled yet or an
+ * image load that stalled, not enough to turn a bad file into a loop.
+ */
+const SCAN_FILE_ATTEMPTS = 2;
+const SCAN_FILE_RETRY_DELAY_MS = 150;
+
+/**
+ * `busy` means the camera release from the previous scan has not settled yet and
+ * `load-failed` means the <img> html5-qrcode built from the File never finished
+ * loading. Both are transient, and both used to end the upload with no feedback
+ * at all, which reads to the user as "the button does nothing".
+ */
+const RETRYABLE_SCAN_ERRORS: ReadonlySet<ScanFileErrorKind> = new Set(['busy', 'load-failed', 'unknown']);
+
+const canRetryScanFile = (kind: ScanFileErrorKind): boolean => RETRYABLE_SCAN_ERRORS.has(kind);
+
+export default function QrScanner({ onDetected, onError, onInvalidQr, onScanFileError }: Props) {
     const { t } = useI18n();
     const readerId = `qr-reader-${React.useId().replace(/:/g, '')}`;
 
+    const hostRef = React.useRef<HTMLDivElement | null>(null);
+    const mountedRef = React.useRef(true);
     const libRef = React.useRef<QrScannerLib | null>(null);
     const scannerRef = React.useRef<import('html5-qrcode').Html5Qrcode | null>(null);
     const camerasRef = React.useRef<CameraDeviceInfo[]>([]);
@@ -39,6 +63,7 @@ export default function QrScanner({ onDetected, onError, onInvalidQr }: Props) {
     const onDetectedRef = React.useRef(onDetected);
     const onErrorRef = React.useRef(onError);
     const onInvalidQrRef = React.useRef(onInvalidQr);
+    const onScanFileErrorRef = React.useRef(onScanFileError);
 
     const [cameras, setCameras] = React.useState<CameraDeviceInfo[]>([]);
     const [activeIndex, setActiveIndex] = React.useState(0);
@@ -52,7 +77,8 @@ export default function QrScanner({ onDetected, onError, onInvalidQr }: Props) {
         onDetectedRef.current = onDetected;
         onErrorRef.current = onError;
         onInvalidQrRef.current = onInvalidQr;
-    }, [onDetected, onError, onInvalidQr]);
+        onScanFileErrorRef.current = onScanFileError;
+    }, [onDetected, onError, onInvalidQr, onScanFileError]);
 
     const report = React.useCallback((error: unknown) => {
         const secureContext = typeof window === 'undefined' ? true : window.isSecureContext;
@@ -62,11 +88,7 @@ export default function QrScanner({ onDetected, onError, onInvalidQr }: Props) {
     const stopCamera = React.useCallback(async () => {
         const scanner = scannerRef.current;
         if (!scanner) return;
-        try {
-            await scanner.stop();
-        } catch {
-            // stop() rejects when the scanner was never running; nothing to release.
-        }
+        await safeStop(() => scanner.stop());
     }, []);
 
     const readTorchSupport = React.useCallback((): boolean => {
@@ -90,6 +112,11 @@ export default function QrScanner({ onDetected, onError, onInvalidQr }: Props) {
             const scanner = scannerRef.current;
             const lib = libRef.current;
             if (!scanner || !lib) return;
+
+            // start() touches the DOM (and getUserMedia), so it must never run
+            // against a container React has already removed: html5-qrcode
+            // dereferences the element it looked up without a null check.
+            if (!mountedRef.current || !hostRef.current?.isConnected) return;
 
             const generation = ++generationRef.current;
             setStatus('starting');
@@ -157,7 +184,7 @@ export default function QrScanner({ onDetected, onError, onInvalidQr }: Props) {
                 setTorchSupported(readTorchSupport());
                 setStatus('running');
             } catch (error) {
-                if (generation !== generationRef.current) return;
+                if (generation !== generationRef.current || !mountedRef.current) return;
                 setStatus('failed');
                 report(error);
             }
@@ -167,6 +194,7 @@ export default function QrScanner({ onDetected, onError, onInvalidQr }: Props) {
 
     React.useEffect(() => {
         let cancelled = false;
+        mountedRef.current = true;
 
         const boot = async () => {
             const lib = await import('html5-qrcode');
@@ -186,21 +214,21 @@ export default function QrScanner({ onDetected, onError, onInvalidQr }: Props) {
 
         return () => {
             cancelled = true;
+            mountedRef.current = false;
             generationRef.current++;
             const scanner = scannerRef.current;
             scannerRef.current = null;
-            if (scanner) {
-                void scanner
-                    .stop()
-                    .catch(() => undefined)
-                    .finally(() => {
-                        try {
-                            scanner.clear();
-                        } catch {
-                            // The container may already be unmounted.
-                        }
-                    });
-            }
+            if (!scanner) return;
+
+            // safeStop absorbs both the bare-string rejection and the synchronous
+            // throw; the uncaught version of either blanked the whole page.
+            void safeStop(() => scanner.stop()).then(() => {
+                try {
+                    scanner.clear();
+                } catch {
+                    // The host may already be unmounted.
+                }
+            });
         };
     }, [readerId, report, startCamera]);
 
@@ -267,33 +295,56 @@ export default function QrScanner({ onDetected, onError, onInvalidQr }: Props) {
     const scanImageFile = React.useCallback(
         async (file: File) => {
             const scanner = scannerRef.current;
-            const container = document.getElementById(readerId);
-            if (!scanner || !container) return;
+            const host = hostRef.current;
+            if (!scanner || !host || !host.isConnected) return;
 
             // html5-qrcode refuses a file scan while a camera scan is running
             // ("Cannot start file scan - ongoing camera scan"), so the camera is
             // released first and resumed afterwards.
-            const resume = scanner.isScanning;
-            if (resume) await stopCamera();
+            const wasScanning = scanner.isScanning;
+            if (wasScanning) await stopCamera();
 
             // scanFile() appends canvases to the container and never removes them,
             // so remember what was already there to clean up after it.
-            const existing = new Set(Array.from(container.children));
+            const existing = new Set(Array.from(host.children));
+            let accepted = false;
 
             try {
-                const value = await scanner.scanFile(file);
-                if (detectedRef.current) return;
-                if (onDetectedRef.current(value)) detectedRef.current = true;
-            } catch {
-                onInvalidQrRef.current();
+                for (let attempt = 1; attempt <= SCAN_FILE_ATTEMPTS; attempt += 1) {
+                    try {
+                        const value = await scanner.scanFile(file);
+                        if (detectedRef.current) return;
+                        if (onDetectedRef.current(value)) {
+                            detectedRef.current = true;
+                            accepted = true;
+                        }
+                        return;
+                    } catch (error) {
+                        const kind = classifyScanFileError(error);
+                        if (!canRetryScanFile(kind) || attempt === SCAN_FILE_ATTEMPTS) {
+                            if (kind === 'not-found') onInvalidQrRef.current();
+                            else onScanFileErrorRef.current(kind);
+                            return;
+                        }
+                        // Each attempt builds a brand new object URL, and the
+                        // pause gives the camera state machine time to settle.
+                        await new Promise((resolve) => setTimeout(resolve, SCAN_FILE_RETRY_DELAY_MS));
+                    }
+                }
             } finally {
-                for (const child of Array.from(container.children)) {
+                for (const child of Array.from(host.children)) {
                     if (!existing.has(child)) child.remove();
                 }
-                if (resume && scannerRef.current) await startCamera(activeIndexRef.current);
+
+                // Restarting a camera that the accepted code just unmounted was
+                // the unhandled `play()` rejection behind the blank page after
+                // an image login, so the restart is now an explicit decision.
+                if (shouldRestartCamera({ mounted: mountedRef.current, wasScanning, accepted })) {
+                    await startCamera(activeIndexRef.current);
+                }
             }
         },
-        [readerId, startCamera, stopCamera],
+        [startCamera, stopCamera],
     );
 
     const facingLabel = (facing: Facing): string => {
@@ -312,10 +363,15 @@ export default function QrScanner({ onDetected, onError, onInvalidQr }: Props) {
         <div className="space-y-2">
             <div className="relative">
                 <div
-                    id={readerId}
-                    className="aspect-square w-full overflow-hidden rounded-lg bg-black"
+                    className="relative aspect-square w-full overflow-hidden rounded-lg bg-black"
                     aria-label={t('camera.viewfinder')}
-                />
+                >
+                    {/* html5-qrcode injects <video>/<canvas> and empties this node
+                        on clear(), so it must never be the element React owns
+                        children of. `h-full` keeps clientHeight valid after that
+                        empty, which is what sizes the file-scan canvas. */}
+                    <div id={readerId} ref={hostRef} className="relative h-full w-full" />
+                </div>
                 {status === 'starting' && (
                     <div className="pointer-events-none absolute inset-0 grid place-items-center">
                         <span className="flex items-center gap-2 text-sm text-white/80">

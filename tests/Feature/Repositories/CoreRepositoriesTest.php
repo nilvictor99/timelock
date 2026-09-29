@@ -43,31 +43,85 @@ it('deletes all sessions for a user', function () {
     expect($repo->deleteByUser($user->id))->toBe(2);
 });
 
-it('manages qr login tokens (create, consume, cleanup)', function () {
+it('manages qr login tokens (create, recordUse, deleteAll)', function () {
     $user = makeUserB('qr@example.com');
     $repo = app(QrLoginTokenRepositoryInterface::class);
 
-    $token = $repo->create($user->id, hash('sha256', 'qr-1'), now()->addMinutes(10));
+    $token = $repo->create($user->id, hash('sha256', 'qr-1'), now()->addMinutes(10), 1);
 
     expect($repo->findByHash(hash('sha256', 'qr-1'))?->id)->toBe($token->id);
-    expect($repo->consume($token->id))->toBeTrue()
-        ->and($token->fresh()->used_at)->not->toBeNull();
+    expect($repo->recordUse($token->id))->toBeTrue()
+        ->and($token->fresh()->used_at)->not->toBeNull()
+        ->and($token->fresh()->uses_count)->toBe(1);
 
-    $expired = $repo->create($user->id, hash('sha256', 'qr-old'), now()->subMinute());
-    expect($repo->deleteUnused($user->id))->toBe(1)
+    $expired = $repo->create($user->id, hash('sha256', 'qr-old'), now()->subMinute(), 1);
+    expect($repo->deleteAll($user->id))->toBe(2)
         ->and($expired->fresh())->toBeNull();
 });
 
-it('prunes expired qr login tokens keeping fresh ones', function () {
+it('only lets a single-use token be spent once', function () {
+    $user = makeUserB('qru@example.com');
+    $repo = app(QrLoginTokenRepositoryInterface::class);
+
+    $token = $repo->create($user->id, hash('sha256', 'qr-once'), now()->addMinutes(10), 1);
+
+    expect($repo->recordUse($token->id))->toBeTrue()
+        ->and($repo->recordUse($token->id))->toBeFalse()
+        ->and($token->fresh()->uses_count)->toBe(1);
+});
+
+it('keeps honouring a token until its use budget runs out', function () {
+    $user = makeUserB('qrm@example.com');
+    $repo = app(QrLoginTokenRepositoryInterface::class);
+
+    $token = $repo->create($user->id, hash('sha256', 'qr-many'), now()->addMinutes(10), 2);
+
+    expect($repo->recordUse($token->id))->toBeTrue()
+        ->and($repo->recordUse($token->id))->toBeTrue()
+        ->and($repo->recordUse($token->id))->toBeFalse()
+        ->and($token->fresh()->uses_count)->toBe(2);
+});
+
+it('treats a null budget or a null expiry as unlimited', function () {
+    $user = makeUserB('qrz@example.com');
+    $repo = app(QrLoginTokenRepositoryInterface::class);
+
+    $perpetual = $repo->create($user->id, hash('sha256', 'qr-forever'), null, null);
+    $unlimitedUses = $repo->create($user->id, hash('sha256', 'qr-uses'), now()->addMinute(), null);
+
+    expect($repo->recordUse($perpetual->id))->toBeTrue()
+        ->and($repo->recordUse($perpetual->id))->toBeTrue()
+        ->and($repo->recordUse($unlimitedUses->id))->toBeTrue()
+        ->and($repo->recordUse($unlimitedUses->id))->toBeTrue();
+});
+
+it('refuses a use once the token has expired', function () {
+    $user = makeUserB('qrx@example.com');
+    $repo = app(QrLoginTokenRepositoryInterface::class);
+
+    $token = $repo->create($user->id, hash('sha256', 'qr-gone'), now()->subMinute(), 1);
+
+    expect($repo->recordUse($token->id))->toBeFalse()
+        ->and($token->fresh()->uses_count)->toBe(0);
+});
+
+it('prunes expired and spent tokens but keeps perpetual ones', function () {
     $user = makeUserB('qrp@example.com');
     $repo = app(QrLoginTokenRepositoryInterface::class);
 
-    $fresh = $repo->create($user->id, hash('sha256', 'qr-fresh'), now()->addMinutes(10));
-    $repo->create($user->id, hash('sha256', 'qr-expired'), now()->subMinute());
+    $fresh = $repo->create($user->id, hash('sha256', 'qr-fresh'), now()->addMinutes(10), 5);
+    $repo->create($user->id, hash('sha256', 'qr-expired'), now()->subMinute(), 5);
 
-    expect($repo->prune())->toBe(1)
+    $spent = $repo->create($user->id, hash('sha256', 'qr-spent'), now()->addMinutes(10), 1);
+    $repo->recordUse($spent->id);
+
+    $perpetual = $repo->create($user->id, hash('sha256', 'qr-forever'), null, null);
+
+    expect($repo->prune())->toBe(2)
         ->and($repo->findByHash(hash('sha256', 'qr-fresh'))?->id)->toBe($fresh->id)
-        ->and($repo->findByHash(hash('sha256', 'qr-expired')))->toBeNull();
+        ->and($repo->findByHash(hash('sha256', 'qr-expired')))->toBeNull()
+        ->and($repo->findByHash(hash('sha256', 'qr-spent')))->toBeNull()
+        ->and($repo->findByHash(hash('sha256', 'qr-forever'))?->id)->toBe($perpetual->id);
 });
 
 it('manages rewards scoped by user', function () {

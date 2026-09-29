@@ -34,17 +34,22 @@ export function StatsFilters({
 
     return (
         <Card>
-            <CardContent className="space-y-4 p-4">
-                <div className="grid gap-4 lg:grid-cols-2">
-                    <div className="lg:col-span-2">
-                        <label className="mb-2 block text-sm font-medium">{t('statsDateRange')}</label>
-                        <div className="grid max-w-md grid-cols-2 gap-2">
-                            <DatePicker value={rangeFrom} onChange={onRangeFromChange} label={t('from')} />
-                            <DatePicker value={rangeTo} onChange={onRangeToChange} label={t('to')} />
-                        </div>
+            <CardContent className="space-y-3 p-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                        <label htmlFor="stats-range-from" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                            {t('from')}
+                        </label>
+                        <DatePicker id="stats-range-from" value={rangeFrom} onChange={onRangeFromChange} />
                     </div>
                     <div>
-                        <label className="mb-2 block text-sm font-medium">{t('statsActivities')}</label>
+                        <label htmlFor="stats-range-to" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                            {t('to')}
+                        </label>
+                        <DatePicker id="stats-range-to" value={rangeTo} onChange={onRangeToChange} />
+                    </div>
+                    <div>
+                        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('statsActivities')}</label>
                         <MultiSelect
                             label={t('statsActivities')}
                             options={(options?.activities ?? []).map((activity) => ({
@@ -63,7 +68,7 @@ export function StatsFilters({
                         />
                     </div>
                     <div>
-                        <label className="mb-2 block text-sm font-medium">{t('statsCategories')}</label>
+                        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('statsCategories')}</label>
                         <MultiSelect
                             label={t('statsCategories')}
                             options={(options?.categories ?? []).map((category) => ({

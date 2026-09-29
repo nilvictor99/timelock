@@ -4,9 +4,13 @@ import assert from 'node:assert/strict';
 import {
     classifyCamera,
     classifyCameraError,
+    classifyScanFileError,
+    isImageLoadFailure,
     nextCameraIndex,
     pickInitialCamera,
     qrboxFor,
+    safeStop,
+    shouldRestartCamera,
 } from '../../resources/js/lib/camera.ts';
 
 describe('classifyCamera', () => {
@@ -212,5 +216,100 @@ describe('qrboxFor', () => {
     test('returns a sane default for a not-yet-measured viewfinder', () => {
         assert.deepEqual(qrboxFor(0, 0), { width: 250, height: 250 });
         assert.deepEqual(qrboxFor(Number.NaN, 100), { width: 250, height: 250 });
+    });
+});
+
+describe('classifyScanFileError', () => {
+    test('html5-qrcode throws plain strings for these paths, not Errors', () => {
+        assert.equal(
+            classifyScanFileError('QR code parse error, error = NotFoundException: Could not find QR Code in the given image.'),
+            'not-found',
+        );
+        assert.equal(
+            classifyScanFileError('imageFile argument is mandatory and should be instance of File or Blob.'),
+            'invalid-file',
+        );
+        assert.equal(classifyScanFileError('Cannot start file scan - ongoing camera scan'), 'busy');
+        assert.equal(classifyScanFileError('Cannot clear while scan is ongoing, close it first.'), 'busy');
+    });
+
+    test('falls back to the DOM exception name when there is no message', () => {
+        assert.equal(classifyScanFileError(new TypeError('bad argument')), 'invalid-file');
+        assert.equal(classifyScanFileError({ name: 'NotFoundError' }), 'not-found');
+    });
+
+    test('anything unrecognised stays unknown instead of pretending it is a QR issue', () => {
+        assert.equal(classifyScanFileError(new Error('boom')), 'unknown');
+        assert.equal(classifyScanFileError(undefined), 'unknown');
+    });
+
+    test('a rejected DOM Event means the image load stalled, not a bad QR', () => {
+        const stalled = new Event('stalled');
+        assert.equal(classifyScanFileError(stalled), 'load-failed');
+        assert.equal(classifyScanFileError(new Event('error')), 'load-failed');
+    });
+});
+
+describe('isImageLoadFailure', () => {
+    test('only a plain DOM Event counts; Errors and strings do not', () => {
+        assert.equal(isImageLoadFailure(new Event('suspend')), true);
+        assert.equal(isImageLoadFailure(new Error('x')), false);
+        assert.equal(isImageLoadFailure('Cannot start file scan'), false);
+        assert.equal(isImageLoadFailure(null), false);
+        assert.equal(isImageLoadFailure(undefined), false);
+    });
+});
+
+describe('shouldRestartCamera', () => {
+    const base = { mounted: true, wasScanning: true, accepted: false };
+
+    test('restarts after a failed image scan while the modal is open', () => {
+        assert.equal(shouldRestartCamera(base), true);
+    });
+
+    test('never restarts after an accepted code, because the modal is closing', () => {
+        assert.equal(shouldRestartCamera({ ...base, accepted: true }), false);
+    });
+
+    test('never restarts after unmount, which is what blanked the page', () => {
+        assert.equal(shouldRestartCamera({ ...base, mounted: false }), false);
+    });
+
+    test('never restarts if the camera was not running in the first place', () => {
+        assert.equal(shouldRestartCamera({ ...base, wasScanning: false }), false);
+    });
+});
+
+describe('safeStop', () => {
+    test('never rejects, so a teardown path cannot blank the page', async () => {
+        await safeStop(() => Promise.reject('rechazado'));
+        await safeStop(async () => {
+            throw 'rechazado';
+        });
+    });
+
+    test('survives the bare string html5-qrcode throws synchronously', async () => {
+        // stop() throws before it ever returns a promise, so `.catch()` chained
+        // straight onto it never attaches and the throw escapes into React.
+        let escaped: unknown = null;
+        const teardown = () => safeStop(() => {
+            throw 'Cannot stop, scanner is not running or paused.';
+        });
+
+        await teardown().catch((cause) => {
+            escaped = cause;
+        });
+
+        assert.equal(escaped, null);
+    });
+
+    test('reports completion so clear() still runs afterwards', async () => {
+        let cleared = false;
+        await safeStop(() => {
+            throw 'boom';
+        }).then(() => {
+            cleared = true;
+        });
+        assert.equal(cleared, true);
     });
 });

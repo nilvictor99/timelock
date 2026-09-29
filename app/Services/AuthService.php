@@ -9,6 +9,8 @@ use App\Repositories\Contracts\RewardRepositoryInterface;
 use App\Repositories\Contracts\SessionRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 
 class AuthService
 {
@@ -16,6 +18,10 @@ class AuthService
 
     public const SESSION_DAYS = 30;
 
+    /**
+     * @deprecated Kept so existing callers and tests keep working; the value now
+     *             lives in config('qr.defaults.ttl') as a whitelist key.
+     */
     public const QR_TTL_MINUTES = 10;
 
     /**
@@ -156,32 +162,80 @@ class AuthService
         return $this->sessions->deleteByUser($userId);
     }
 
-    public function createQrToken(User $user): array
+    /**
+     * @return int|null null is a real option ("never"/"unlimited"), not a miss.
+     */
+    private function qrOption(string $table, string $key): ?int
     {
+        $options = config("qr.{$table}");
+
+        if (! is_array($options) || ! array_key_exists($key, $options)) {
+            throw new InvalidArgumentException("Opción QR desconocida: {$table}.{$key}");
+        }
+
+        $value = $options[$key];
+
+        return $value === null ? null : (int) $value;
+    }
+
+    /**
+     * Issues the single active QR of a user, revoking whatever came before.
+     *
+     * The lifetime and the use budget are whitelist keys, not raw values, so the
+     * caller cannot ask for something the UI does not offer.
+     *
+     * @return array{token: string, expiresAt: ?CarbonImmutable, maxUses: ?int, ttlKey: string, useKey: string, perpetual: bool}
+     */
+    public function createQrToken(User $user, ?string $ttlKey = null, ?string $useKey = null): array
+    {
+        $ttlKey ??= (string) config('qr.defaults.ttl');
+        $useKey ??= (string) config('qr.defaults.uses');
+
+        // config() returns null for an unknown key, which for both options means
+        // "no limit". Falling through to a permanent credential because of a typo
+        // is the worst possible failure here, so the keys are checked explicitly.
+        $minutes = $this->qrOption('ttl_options', $ttlKey);
+        $maxUses = $this->qrOption('use_options', $useKey);
+        $expiresAt = $minutes === null ? null : CarbonImmutable::now()->addMinutes((int) $minutes);
+        $perpetual = $expiresAt === null && $maxUses === null;
+
+        if ($perpetual) {
+            // A token that never expires and never runs out is a permanent
+            // password in a QR code. It is allowed because it is a legitimate
+            // choice for a shared kiosk, but it has to leave a trace.
+            Log::warning('Timelock: se ha creado un token QR permanente (sin caducidad y sin limite de usos).', [
+                'user_id' => $user->id,
+            ]);
+        }
+
         $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-        $expiresAt = CarbonImmutable::now()->addMinutes(self::QR_TTL_MINUTES);
 
-        $this->tokens->deleteUnused($user->id);
-        $this->tokens->create($user->id, $this->hashToken($token), $expiresAt);
+        $this->tokens->deleteAll($user->id);
+        $this->tokens->create($user->id, $this->hashToken($token), $expiresAt, $maxUses);
 
-        return ['token' => $token, 'expiresAt' => $expiresAt];
+        return [
+            'token' => $token,
+            'expiresAt' => $expiresAt,
+            'maxUses' => $maxUses,
+            'ttlKey' => $ttlKey,
+            'useKey' => $useKey,
+            'perpetual' => $perpetual,
+        ];
     }
 
     public function loginWithQr(string $token): ?User
     {
         $qrToken = $this->tokens->findByHash($this->hashToken($token));
 
-        if (! $qrToken || $qrToken->used_at !== null) {
+        if (! $qrToken) {
             return null;
         }
 
-        if ($qrToken->expires_at->lte(CarbonImmutable::now())) {
-            $this->tokens->consume($qrToken->id);
-
+        // Expiry, use budget and the use itself are one atomic statement: a
+        // single-use token cannot be spent twice by two simultaneous requests.
+        if (! $this->tokens->recordUse($qrToken->id)) {
             return null;
         }
-
-        $this->tokens->consume($qrToken->id);
 
         $user = $this->users->find($qrToken->user_id);
         if ($user) {

@@ -6,6 +6,21 @@ import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { I18nProvider } from '@/lib/i18n';
 import { ThemeProvider } from '@/lib/theme';
+import ErrorBoundary from '@/Components/ErrorBoundary';
+
+/**
+ * Errors that never reach React: rejected promises from camera/media code, or
+ * anything a vendor callback throws outside a render. An ErrorBoundary cannot
+ * see those, so they are logged here instead of vanishing.
+ */
+function reportGlobalError(kind: 'error' | 'unhandledrejection', event: Event) {
+    if (!import.meta.env.DEV) return;
+    const reason = kind === 'unhandledrejection' ? (event as PromiseRejectionEvent).reason : event;
+    console.error(`[TimeLock] ${kind}`, reason);
+}
+
+window.addEventListener('error', (event) => reportGlobalError('error', event));
+window.addEventListener('unhandledrejection', (event) => reportGlobalError('unhandledrejection', event));
 
 type PageProps = {
     auth?: { user?: { theme?: string } };
@@ -27,7 +42,9 @@ createInertiaApp({
         createRoot(el as HTMLElement).render(
             <I18nProvider locale={locale}>
                 <ThemeProvider initialTheme={themeFromUser(user?.theme)}>
-                    <App {...props} />
+                    <ErrorBoundary>
+                        <App {...props} />
+                    </ErrorBoundary>
                 </ThemeProvider>
             </I18nProvider>,
         );

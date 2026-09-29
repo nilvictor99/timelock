@@ -22,7 +22,7 @@ Generado: 2026-09-21 (Tarea 0 del plan maestro).
 > En Laravel los endpoints QR se registraron **sin** prefijo `/api`: `POST /auth/qr` y `POST /auth/qr-login` (web). El resto conserva el prefijo `/api`.
 
 ### Componentes
-`auth-form`, `dashboard-shell`, `dashboard`, `onboarding`, `profile-screen`, `qr-scanner`, `settings-screen`, `stats-screen`, `theme-provider`, `ui/{button,card,input,badge}`.
+`auth-form`, `dashboard-shell`, `dashboard`, `onboarding`, `profile-screen`, `qr-scanner`, `qr-panel` (`Components/Qr/QrLoginPanel.tsx`), `settings-screen`, `stats-screen`, `theme-provider`, `ui/{button,card,input,badge}`.
 
 ### Librerías
 react 18.3, zod, bcryptjs, date-fns, recharts, qrcode, html5-qrcode, jspdf, lucide-react, cva(clsx/tailwind-merge), next-themes. Stack: Tailwind v3 + shadcn/ui hand-rolled.
@@ -48,7 +48,7 @@ react 18.3, zod, bcryptjs, date-fns, recharts, qrcode, html5-qrcode, jspdf, luci
 - [x] Pest tests repositorios: 17 verdes (feature + unit)
 
 ### Estado (Tareas 1-3)
-- [x] Services: User/Session/Category/Activity/Reward/QrLoginToken/Suggestion + AuthService (cookie `timelock_session`, hash sha256+b64url, bcrypt 12, defaults registro, sesiones 30d, QR TTL 10min single-use) + AiService (guard SSRF portado: PROVIDER_HOSTS/LOCAL_HOSTNAMES/isPrivateIp)
+- [x] Services: User/Session/Category/Activity/Reward/Suggestion + AuthService (cookie `timelock_session`, hash sha256+b64url, bcrypt 12, defaults registro, sesiones 30d, QR con caducidad/uses configurables en `config/qr.php`) + AiService (guard SSRF portado: PROVIDER_HOSTS/LOCAL_HOSTNAMES/isPrivateIp). El `QrLoginTokenService` se eliminó: su lógica quedó en `AuthService` + `QrLoginTokenRepository`
 - [x] Auth HTTP: middleware `auth.session`, LoginRequest/RegisterRequest (validación 1:1 zod, mensajes ES), AuthController (login/register/logout/me/qr/qr-login), rutas web + Inertia stubs (Login/Register/Onboarding/Dashboard)
 - [x] Cookie en `except` de EncryptCookies; responde por `Set-Cookie` con expiry real (DateTimeInterface), logout–3600s
 - [x] Pest tests services + auth HTTP: 40 verdes (138 assertions)
@@ -77,7 +77,7 @@ react 18.3, zod, bcryptjs, date-fns, recharts, qrcode, html5-qrcode, jspdf, luci
 - [x] `Profile`: avatar (multipart), cambio de email y contraseña (invalida sesiones y refresca cookie); `Settings`: nombre, tema (persiste en BD vía `bootstrap settings`), idioma, modo
 - [x] Rutas `/dashboard/profile|settings|stats` protegidas (`auth.session`) + `tests/Feature/Web/InertiaPagesTest.php` (3 tests)
 - [x] `tsconfig.json` sin `baseUrl` (TS7) con rutas relativas; tipos en `resources/js/types.ts`; helper `lib/api.ts`
-- [x] **QR login completo v2**: flujo integrado en `Login.tsx` (escáner `html5-qrcode` + fallback pegar token + `?qr=` autologin) y en la tarjeta Seguridad de `Profile.tsx` (generador: `Components/QrCode` (paquete `qrcode`), auto-renovación cada 60s con cuenta atrás, PNG/PDF, botón "Probar en este dispositivo" → `POST /auth/qr-login`); consume `/auth/qr-login` y redirige a dashboard u onboarding según `onboarding_completed`
+- [x] **QR login completo v2**: flujo integrado en `Login.tsx` (escáner `html5-qrcode` + fallback pegar token + `?qr=` autologin) y en el panel de dominio `Components/Qr/QrLoginPanel.tsx`, montado en la tarjeta Seguridad de `Profile.tsx` (generador `Components/QrCode` (paquete `qrcode`), selectores de caducidad y usos, cuenta atrás real desde `expiresAt` —ya sin auto-renovación ficticia de 60s—, badges, aviso de credencial permanente, PNG/PDF, botón "Probar en este dispositivo" → `POST /auth/qr-login`); consume `/auth/qr-login` y redirige a dashboard u onboarding según `onboarding_completed`
 - [x] **Stats mejoradas**: gráfico de barras de completadas últimos 14 días (recharts), botones Exportar CSV (`/api/export`) y Exportar PDF (`jspdf`)
 - [x] Deps nuevas: `qrcode`, `html5-qrcode`, `recharts`, `jspdf`, `@types/qrcode`
 - [x] `lib/api.ts`: envía `X-XSRF-TOKEN` (desde cookie) en todas las peticiones — sin esto los POST/PATCH/DELETE de fetch daban 419. `...init` va antes que `headers` para no pisarlos
@@ -86,13 +86,13 @@ react 18.3, zod, bcryptjs, date-fns, recharts, qrcode, html5-qrcode, jspdf, luci
 
 ### Estado (Tareas 6 — Mejoras QR, 2026-09-23)
 - [x] Fix 404: `Profile.tsx` llamaba `POST /api/auth/qr` (ruta inexistente) → ahora `POST /auth/qr` (mismo path que `qrLogin` consume)
-- [x] Revocación: `AuthService::createQrToken` ahora llama `deleteUnused(userId)` antes de insertar → generar un QR nuevo invalida los pendientes (paridad con `deleteUnusedQrTokens` de Next.js)
+- [x] Revocación: `AuthService::createQrToken` llama `deleteAll(userId)` antes de insertar → generar un QR nuevo invalida los pendientes (paridad con `deleteUnusedQrTokens` de Next.js)
 - [x] CSRF: `Login.tsx` consumía `/auth/qr-login` con `fetch` crudo sin `X-XSRF-TOKEN` (→ 419 en navegador); ahora usa `apiPost` (que lo envía). `api.ts` además expone `message` (ej. too-many-attempts) en el error
 - [x] Mismo origen: `normalizeQrValue` (Login) rechaza URL de QR de otro origen (`parsed.origin === window.location.origin`)
 - [x] `AuthController::qr` responde `Cache-Control: no-store` (paridad con Next)
-- [x] Throttle `POST /auth/qr-login`: 10/min por IP (`throttle:10,1`)
-- [x] Comando `qr:prune` (borra tokens caducados) + `Schedule::command('qr:prune')->daily()` en `routes/console.php`
-- [x] i18n: eliminadas claves huérfanas (`qrlogin.*`, `qr.title`, `qr.explanation`, `qr.refresh`, `nav.qr`); se reutilizan `qr.expires` y `qr.test`
+- [x] Throttle `POST /auth/qr-login`: 30/min por IP y `POST /auth/qr`: 10/min, ambos leídos de `config/qr.php`
+- [x] Comando `qr:prune` (borra tokens caducados o agotados, conserva los perpetuos) + `Schedule::command('qr:prune')->daily()` en `routes/console.php`
+- [x] i18n: eliminadas claves huérfanas (`qrlogin.*`, `qr.title`, `qr.explanation`, `qr.refresh`, `nav.qr`); añadidas `qrPanelIntro`, `qrTtlLabel`, `qrUsesLabel`, `qrRegenerate`, `qrNoExpiry`, `qrTestDone`, `qrPerpetualWarning`, `qr.ttl.*`, `qr.uses.*` (ES/EN en paridad)
 - [x] Fix tsc: `DashboardLayout` pasaba `NavId` ('home') donde se esperaba `TabId` → guard `isTabId`
 
 ### Pendiente
@@ -118,3 +118,13 @@ Plan de mejora estética dirigido con Spec Kit (specs/001-003, artefactos spec/p
 - [x] **MultiSelect** (`@/components/ui/multi-select`, sin deps nuevas): popover con búsqueda, checkboxes, chips removibles con X, contador en trigger, "Limpiar" y "Seleccionar todo" (categorías con dot de color). Aplicado a Actividades y Categorías en Stats — reemplaza la lista plana truncada a 12; layout de filtros: Rango fila completa + 2 selects
 - [x] **Borde de rango exacto**: `findByUserRange` filtra por columna `date` (antes instantes UTC → ingería 5h del día previo y cortaba la tarde del último día); rewards por wall-clock del TZ de la app
 - [x] Suite **113/113** (481 aserciones, +4 tests: multi ids, multi categorías, intersección, borde 23:30) · tsc OK · build OK · smoke multi-filtro en vivo OK
+
+### Estado (Consolidación de exportación y rachas, 2026-09-27)
+- [x] **Exportación unificada en Estadísticas**: el módulo `Export.tsx` y la sección de exportación de Ajustes se eliminan. Estadísticas exporta CSV (respeta rango + actividades + categorías), JSON (volcado completo) y PDF descargable con el estado completo del usuario (resumen + todas las actividades, paginado). `window.print()` se elimina
+- [x] **PDF real**: `lib/export-pdf.ts` con carga dinámica de `jspdf` (chunk aparte, no entra en el bundle de Stats), paginación, pie `página / total` y `pdf.save()`
+- [x] **Backend**: concern `ParsesStatsFilters` compartido por `StatsController` y `ExportController` (`parseRange` estricto, `parseOptionalRange` para el volcado completo, `csvIds` con tope y dedupe). Los filtros solo se aplican al CSV; el JSON siempre ignora `activities`/`categories`. Semántica unificada con `StatsService`: lista vacía = sin filtro
+- [x] **Módulo Cadena diaria eliminado**: `Streak.tsx` y sus entradas de navegación se borran; sus 10 hitos (3→25 días) pasan a `Components/stats/StreakPanel.tsx`, que ya mostraba racha actual, mejor racha, días perfectos e historial calculados por el servidor (los campos `users.current_streak`/`best_streak` quedan como fallback/IA). Sin migración de BD
+- [x] **Rutas antiguas**: `/dashboard/export` y `/dashboard/streak` redirigen a `/dashboard/stats` (se mantienen los nombres de ruta y el legacy `?tab=`)
+- [x] **Perfil simplificado**: se quitan la tarjeta de estadísticas y la fila de enlace a Estadísticas; el QR queda como único elemento de la columna derecha
+- [x] **i18n**: 13 claves nuevas de exportación y 17 huérfanas eliminadas (ES/EN); `streakMilestones` pasa a "Hitos de racha"
+- [x] Suite **141/141** (594 aserciones, +7 tests de exportación) · 40/40 frontend · tsc OK (aislado de Attendance) · build OK · Pint OK en los archivos tocados

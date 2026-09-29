@@ -1,8 +1,6 @@
 import * as React from 'react';
-import QRCode from 'qrcode';
-import { Camera, Check, Copy, Loader2, Mail, RotateCcw, ShieldCheck, X, XCircle } from 'lucide-react';
+import { Camera, Check, Loader2, Mail, RotateCcw, X, XCircle } from 'lucide-react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { QrCode } from '@/Components/QrCode';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -12,6 +10,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import QrLoginPanel from '@/Components/Qr/QrLoginPanel';
 import { useI18n } from '@/lib/i18n';
 import { emailSchema } from '@/lib/validations';
 import { apiForm, apiGet, apiPost } from '@/lib/api';
@@ -63,7 +62,6 @@ type ProfileForm = {
 
 type ProfileData = {
     user: Record<string, unknown>;
-    activities: Array<{ status: string; startAt: string; endAt: string }>;
 };
 
 const emptyForm: ProfileForm = {
@@ -157,11 +155,9 @@ function ageFromBirthDate(value: string) {
 }
 
 export default function Profile() {
-    const { t, locale, setLocale } = useI18n();
+    const { t, setLocale } = useI18n();
     const [data, setData] = React.useState<ProfileData | null>(null);
     const [form, setForm] = React.useState<ProfileForm>(emptyForm);
-    const [qr, setQr] = React.useState<{ imageUrl: string; token: string; loginUrl: string; expiresAt: string } | null>(null);
-    const [secondsLeft, setSecondsLeft] = React.useState(60);
     const [message, setMessage] = React.useState('');
     const [loaded, setLoaded] = React.useState(false);
     const [newSkill, setNewSkill] = React.useState('');
@@ -190,33 +186,10 @@ export default function Profile() {
     }, []);
 
     React.useEffect(() => {
-        const interval = window.setInterval(() => setSecondsLeft((current) => Math.max(0, current - 1)), 1000);
-        return () => window.clearInterval(interval);
-    }, []);
-
-    React.useEffect(() => {
-        if (!qr || secondsLeft > 0) return;
-        void generateQr();
-    }, [qr, secondsLeft]);
-
-    React.useEffect(() => {
         if (!toast) return;
         const timeout = window.setTimeout(() => setToast(''), 3000);
         return () => window.clearTimeout(timeout);
     }, [toast]);
-
-    const stats = React.useMemo(() => {
-        const activities = data?.activities ?? [];
-        const completed = activities.filter((activity) => activity.status === 'COMPLETED');
-        return {
-            days: new Set(completed.map((activity) => new Date(activity.startAt).toDateString())).size,
-            minutes: completed.reduce(
-                (sum, activity) =>
-                    sum + Math.max(0, (new Date(activity.endAt).getTime() - new Date(activity.startAt).getTime()) / 60000),
-                0,
-            ),
-        };
-    }, [data]);
 
     const setProfileValue = React.useCallback(<K extends keyof ProfileForm>(key: K, value: ProfileForm[K]) => {
         setForm((current) => ({ ...current, [key]: value }));
@@ -322,57 +295,6 @@ export default function Profile() {
         } catch (cause) {
             setMessage(cause instanceof Error ? cause.message : t('invalidFile'));
         }
-    }
-
-    async function generateQr() {
-        try {
-            const result = await apiPost<{ token: string; expiresAt: string }>('/auth/qr', {});
-            const loginUrl = `${window.location.origin}/login?qr=${encodeURIComponent(result.token)}`;
-            setQr({
-                imageUrl: await QRCode.toDataURL(loginUrl, { margin: 2, width: 240 }),
-                token: result.token,
-                loginUrl,
-                expiresAt: result.expiresAt,
-            });
-            setSecondsLeft(60);
-        } catch (cause) {
-            setSecondsLeft(10);
-            setMessage(cause instanceof Error ? cause.message : t('saveError'));
-        }
-    }
-
-    async function consumeHere() {
-        if (!qr) return;
-        try {
-            await apiPost<{ ok: boolean }>('/auth/qr-login', { token: qr.token });
-            await generateQr();
-        } catch (cause) {
-            setSecondsLeft(10);
-            setMessage(cause instanceof Error ? cause.message : t('saveError'));
-        }
-    }
-
-    function downloadQrPng() {
-        if (!qr) return;
-        const link = document.createElement('a');
-        link.href = qr.imageUrl;
-        link.download = 'timelock-qr-login.png';
-        link.click();
-    }
-
-    async function downloadQrPdf() {
-        if (!qr) return;
-        const { jsPDF } = await import('jspdf');
-        const pdf = new jsPDF({ format: 'a4', unit: 'mm' });
-        pdf.setFontSize(18);
-        pdf.text('TimeLock-v', 20, 25);
-        pdf.setFontSize(13);
-        pdf.text(t('qrLogin'), 20, 35);
-        pdf.addImage(qr.imageUrl, 'PNG', 20, 45, 70, 70);
-        pdf.setFontSize(10);
-        pdf.text(t('qrExpires'), 20, 125);
-        pdf.text(new Date(qr.expiresAt).toLocaleString(locale), 20, 133);
-        pdf.save('timelock-qr-login.pdf');
     }
 
     return (
@@ -493,80 +415,7 @@ export default function Profile() {
                     </div>
 
                     <div className="space-y-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>{t('accountStats')}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                <Metric label={t('activeDays')} value={String(stats.days)} />
-                                <Metric label={t('currentStreak')} value={`${user.currentStreak ?? 0}`} />
-                                <Metric label={t('totalPoints')} value={`${user.points ?? 0}`} />
-                                <Metric label={t('totalTime')} value={`${Math.round(stats.minutes)}m`} />
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <ShieldCheck size={18} /> {t('security')}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-sm text-muted-foreground">{t('qrExpires')}</p>
-                                <div className="mt-4 flex flex-wrap items-start gap-5">
-                                    {qr && (
-                                        <div className="rounded-lg border bg-white p-2">
-                                            <QrCode value={qr.loginUrl} size={224} />
-                                            <p className="mt-2 text-center text-xs text-slate-700">{t('qrScan')}</p>
-                                        </div>
-                                    )}
-                                    <div className="min-w-0 space-y-2">
-                                        <Button onClick={() => void generateQr()}>{t('generateQr')}</Button>
-                                        {qr && (
-                                            <>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {t('qrValidUntil')}: {new Date(qr.expiresAt).toLocaleString(locale)}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {t('qr.expires')}: {secondsLeft}s
-                                                </p>
-                                                <div className="space-y-1 text-sm">
-                                                    <p className="break-all">
-                                                        <span className="font-medium">{t('qrToken')}:</span> {qr.token}
-                                                    </p>
-                                                    <Button
-                                                        variant="outline"
-                                                        onClick={() => navigator.clipboard?.writeText(qr.token)}
-                                                    >
-                                                        <Copy size={15} /> {t('copyToken')}
-                                                    </Button>
-                                                    <p className="break-all">
-                                                        <span className="font-medium">{t('qrLink')}:</span> {qr.loginUrl}
-                                                    </p>
-                                                    <Button
-                                                        variant="outline"
-                                                        onClick={() => navigator.clipboard?.writeText(qr.loginUrl)}
-                                                    >
-                                                        <Copy size={15} /> {t('copyLink')}
-                                                    </Button>
-                                                </div>
-                                                <div className="flex flex-wrap gap-2">
-                                                    <Button variant="outline" size="sm" onClick={downloadQrPng}>
-                                                        {t('downloadPng')}
-                                                    </Button>
-                                                    <Button variant="outline" size="sm" onClick={() => void downloadQrPdf()}>
-                                                        {t('downloadPdf')}
-                                                    </Button>
-                                                    <Button variant="outline" size="sm" onClick={() => void consumeHere()}>
-                                                        {t('qr.test')}
-                                                    </Button>
-                                                </div>
-                                                <p className="max-w-xs text-xs text-warning">{t('qrDownloadWarning')}</p>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <QrLoginPanel />
                     </div>
                 </div>
                 {message && <p className="text-sm text-muted-foreground">{message}</p>}
@@ -1031,15 +880,6 @@ function TagInput({
                     </span>
                 ))}
             </div>
-        </div>
-    );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="rounded-lg bg-muted p-3">
-            <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="mt-1 text-xl font-bold">{value}</p>
         </div>
     );
 }

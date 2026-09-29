@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils';
 import type { StatsSummary } from './types';
 import type { Translator } from './format';
 
+const MILESTONES = [3, 5, 7, 9, 11, 12, 15, 18, 21, 25];
+
 export function StreakPanel({
     streak,
     loading,
@@ -61,6 +63,30 @@ export function StreakPanel({
                             )}
                         />
                     ))}
+                </div>
+                <div className="mt-5 border-t border-border pt-4">
+                    <p className="mb-2.5 text-xs font-medium text-muted-foreground">{t('streakMilestones')}</p>
+                    <div className="grid grid-cols-5 gap-2 sm:grid-cols-10">
+                        {MILESTONES.map((goal) => {
+                            const reached = streak.current >= goal;
+                            const left = goal - streak.current;
+
+                            return (
+                                <div
+                                    key={goal}
+                                    className={cn(
+                                        'rounded-md border px-2 py-2 text-center',
+                                        reached ? 'border-warning/40 bg-warning/10' : 'border-border',
+                                    )}
+                                >
+                                    <p className="text-sm font-semibold tabular-nums">{goal}</p>
+                                    <p className={cn('text-[10px] leading-tight', reached ? 'text-warning' : 'text-muted-foreground')}>
+                                        {reached ? t('streakUnlocked') : t('streakDaysToGo').replace('{left}', String(Math.max(left, 0)))}
+                                    </p>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             </CardContent>
         </Card>

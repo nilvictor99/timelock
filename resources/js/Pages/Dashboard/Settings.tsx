@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Check, Download, Eye, EyeOff, Loader2, Pause, Play, RotateCcw, Trash2, XCircle } from 'lucide-react';
+import { Check, Eye, EyeOff, Loader2, Pause, Play, RotateCcw, Trash2, XCircle } from 'lucide-react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -325,35 +325,6 @@ export default function Settings() {
         }
     }
 
-    function exportData(format: 'json' | 'csv') {
-        window.location.href = `/api/export?format=${format}`;
-    }
-
-    async function exportPdf() {
-        try {
-            const exported = await apiGet<{ user?: User; activities?: Array<{ title: string; startAt: string; status: string }> }>('/api/export?format=json');
-            const { jsPDF } = await import('jspdf');
-            const pdf = new jsPDF();
-            pdf.setFontSize(16);
-            pdf.text('TimeLock-v', 14, 18);
-            pdf.setFontSize(10);
-            pdf.text(`${exported.user?.name ?? ''} · ${new Date().toLocaleString()}`, 14, 26);
-            let y = 38;
-            for (const activity of exported.activities ?? []) {
-                const line = `${activity.title} · ${new Date(activity.startAt).toLocaleString()} · ${activity.status}`;
-                pdf.text(line.slice(0, 105), 14, y);
-                y += 7;
-                if (y > 280) {
-                    pdf.addPage();
-                    y = 18;
-                }
-            }
-            pdf.save('timelock-export.pdf');
-        } catch {
-            setMessage(t('saveError'));
-        }
-    }
-
     async function deleteAccount() {
         if (!user?.email) {
             setMessage(t('deletionError'));
@@ -647,22 +618,32 @@ export default function Settings() {
                             </Select>
                             </label>
                             <AutoStatus status={statuses.profileVisibility} onRevert={() => revert('profileVisibility')} t={t} />
-                            <div className="border-t border-border pt-4">
-                                <p className="mb-3 text-sm font-medium">{t('exportData')}</p>
-                                <div className="flex flex-wrap gap-2">
-                                    <Button type="button" variant="outline" onClick={() => exportData('json')}>
-                                        <Download size={15} />
-                                        {t('exportJson')}
-                                    </Button>
-                                    <Button type="button" variant="outline" onClick={() => exportData('csv')}>
-                                        <Download size={15} />
-                                        {t('exportCsv')}
-                                    </Button>
-                                    <Button type="button" variant="outline" onClick={() => void exportPdf()}>
-                                        <Download size={15} />
-                                        {t('exportPdf')}
-                                    </Button>
-                                </div>
+                            <div className="space-y-4 border-t border-border pt-4">
+                                <p className="flex items-center gap-2 font-medium">
+                                    <Pause size={16} /> {t('pauseMode')}
+                                </p>
+                                <p className="text-sm text-muted-foreground">{t('pauseDescription')}</p>
+                                <label className="block text-sm font-medium">
+                                    {t('pauseReason')}
+                                    <Input className="mt-2" maxLength={120} value={reason} onChange={(event) => setReason(event.target.value)} />
+                                </label>
+                                <Button onClick={() => void togglePause()}>
+                                    {user.pauseActive ? (
+                                        <>
+                                            <Play size={16} /> {t('resume')}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Pause size={16} /> {t('activatePause')}
+                                        </>
+                                    )}
+                                </Button>
+                                {user.pauseActive && (
+                                    <p className="rounded-md border border-warning bg-orange-50 p-3 text-sm text-orange-800 dark:bg-orange-950/30 dark:text-orange-200">
+                                        {t('pauseActive')}
+                                        {user.pauseReason ? ` ${user.pauseReason}` : ''}
+                                    </p>
+                                )}
                             </div>
                             <div className="border-t border-border pt-4">
                                 <p className="font-medium text-danger">{t('deleteAccount')}</p>
@@ -797,38 +778,6 @@ export default function Settings() {
                             <AutoStatus status={statuses.aiBaseUrl} onRevert={() => revert('aiBaseUrl')} t={t} />
                             <AutoStatus status={statuses.aiTemperature} onRevert={() => revert('aiTemperature')} t={t} />
                             <AutoStatus status={statuses.aiMaxTokens} onRevert={() => revert('aiMaxTokens')} t={t} />
-                        </CardContent>
-                    </Card>
-
-                    <Card className={user.pauseActive ? 'border-warning' : ''}>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Pause size={18} /> {t('pauseMode')}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <p className="text-sm text-muted-foreground">{t('pauseDescription')}</p>
-                            <label className="block text-sm font-medium">
-                                {t('pauseReason')}
-                                <Input className="mt-2" maxLength={120} value={reason} onChange={(event) => setReason(event.target.value)} />
-                            </label>
-                            <Button onClick={() => void togglePause()}>
-                                {user.pauseActive ? (
-                                    <>
-                                        <Play size={16} /> {t('resume')}
-                                    </>
-                                ) : (
-                                    <>
-                                        <Pause size={16} /> {t('activatePause')}
-                                    </>
-                                )}
-                            </Button>
-                            {user.pauseActive && (
-                                <p className="rounded-md border border-warning bg-orange-50 p-3 text-sm text-orange-800 dark:bg-orange-950/30 dark:text-orange-200">
-                                    {t('pauseActive')}
-                                    {user.pauseReason ? ` ${user.pauseReason}` : ''}
-                                </p>
-                            )}
                         </CardContent>
                     </Card>
                 </div>

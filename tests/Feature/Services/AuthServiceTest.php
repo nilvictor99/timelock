@@ -6,6 +6,7 @@ use App\Repositories\Contracts\QrLoginTokenRepositoryInterface;
 use App\Repositories\Contracts\SessionRepositoryInterface;
 use App\Services\AuthService;
 use Carbon\CarbonImmutable;
+use InvalidArgumentException;
 
 it('registers a user with default categories, rewards and a session', function () {
     $service = app(AuthService::class);
@@ -98,7 +99,7 @@ it('rejects an expired QR token', function () {
     expect($service->loginWithQr($qr['token']))->toBeNull();
 });
 
-it('revokes previous unused QR tokens when a new one is created', function () {
+it('revokes previous QR tokens even when they were already used', function () {
     $service = app(AuthService::class);
     $result = $service->register(['email' => 'qv@example.com', 'name' => 'QV', 'password' => 'abc12345']);
 
@@ -107,4 +108,69 @@ it('revokes previous unused QR tokens when a new one is created', function () {
 
     expect($service->loginWithQr($first['token']))->toBeNull()
         ->and($service->loginWithQr($second['token'])?->id)->toBe($result['user']->id);
+});
+
+it('defaults to ten minutes and a single use when no options are given', function () {
+    $service = app(AuthService::class);
+    $result = $service->register(['email' => 'qd@example.com', 'name' => 'QD', 'password' => 'abc12345']);
+
+    $qr = $service->createQrToken($result['user']);
+
+    expect($qr['ttlKey'])->toBe(config('qr.defaults.ttl'))
+        ->and($qr['useKey'])->toBe(config('qr.defaults.uses'))
+        ->and($qr['maxUses'])->toBe(1)
+        ->and($qr['expiresAt'])->not->toBeNull()
+        ->and($qr['expiresAt']->diffInMinutes(now()))->toBeLessThanOrEqual(10)
+        ->and($qr['perpetual'])->toBeFalse();
+});
+
+it('honours the requested lifetime', function () {
+    $service = app(AuthService::class);
+    $result = $service->register(['email' => 'qw@example.com', 'name' => 'QW', 'password' => 'abc12345']);
+
+    $week = $service->createQrToken($result['user'], '1w', '5');
+    $never = $service->createQrToken($result['user'], 'never', '5');
+
+    expect((int) round(now()->diffInMinutes($week['expiresAt'], true)))->toBe(config('qr.ttl_options.1w'))
+        ->and($week['maxUses'])->toBe(5)
+        ->and($never['expiresAt'])->toBeNull()
+        ->and($never['maxUses'])->toBe(5)
+        ->and($never['perpetual'])->toBeFalse();
+});
+
+it('logs in repeatedly until the use budget is spent', function () {
+    $service = app(AuthService::class);
+    $result = $service->register(['email' => 'qr3@example.com', 'name' => 'QR3', 'password' => 'abc12345']);
+
+    $qr = $service->createQrToken($result['user'], '1d', '5');
+
+    $logins = collect(range(1, 5))
+        ->map(fn () => $service->loginWithQr($qr['token'])?->id)
+        ->all();
+
+    expect($logins)->toBe(array_fill(0, 5, $result['user']->id))
+        ->and($service->loginWithQr($qr['token']))->toBeNull();
+});
+
+it('refuses an option key that is not in the whitelist', function () {
+    $service = app(AuthService::class);
+    $result = $service->register(['email' => 'qrx2@example.com', 'name' => 'QRX2', 'password' => 'abc12345']);
+
+    expect(fn () => $service->createQrToken($result['user'], '1d', '3'))
+        ->toThrow(InvalidArgumentException::class)
+        ->and(fn () => $service->createQrToken($result['user'], '99y', '1'))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+it('accepts a perpetual token and flags it', function () {
+    $service = app(AuthService::class);
+    $result = $service->register(['email' => 'qrp2@example.com', 'name' => 'QRP2', 'password' => 'abc12345']);
+
+    $qr = $service->createQrToken($result['user'], 'never', 'unlimited');
+
+    expect($qr['perpetual'])->toBeTrue()
+        ->and($qr['expiresAt'])->toBeNull()
+        ->and($qr['maxUses'])->toBeNull()
+        ->and($service->loginWithQr($qr['token'])?->id)->toBe($result['user']->id)
+        ->and($service->loginWithQr($qr['token'])?->id)->toBe($result['user']->id);
 });

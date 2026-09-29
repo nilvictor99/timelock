@@ -4,8 +4,7 @@ import {
     Activity as ActivityIcon,
     BarChart3,
     CalendarDays,
-    Download,
-    Flame,
+    Clock,
     Gift,
     Home,
     Moon,
@@ -36,10 +35,9 @@ const navItems: { id: NavId; labelKey: string; icon: typeof Home }[] = [
     { id: 'suggestions', labelKey: 'navSuggestions', icon: Sparkles },
     { id: 'rewards', labelKey: 'navRewards', icon: Gift },
     { id: 'calendar', labelKey: 'navCalendar', icon: CalendarDays },
-    { id: 'streak', labelKey: 'navStreak', icon: Flame },
+    { id: 'attendance', labelKey: 'navAttendance', icon: Clock },
     { id: 'profile', labelKey: 'navProfile', icon: UserRound },
     { id: 'settings', labelKey: 'navSettings', icon: Settings },
-    { id: 'export', labelKey: 'navExport', icon: Download },
 ];
 
 function activeFromUrl(rawUrl: string): NavId {
@@ -197,30 +195,30 @@ export default function DashboardLayout({
                     </Button>
                 </div>
                 <nav className="space-y-1">{navItems.map(renderItem)}</nav>
-                <div className={cn('mt-auto border-t border-border pt-3', expanded ? 'space-y-1' : 'space-y-2')}>
+                <div className={cn('mt-auto flex border-t border-border pt-3', expanded ? 'gap-2' : 'gap-0.5')}>
                     <button
                         onClick={() => setExpanded(!expanded)}
                         className={cn(
-                            'flex w-full items-center rounded-md py-2 text-sm text-muted-foreground hover:bg-muted',
-                            expanded ? 'gap-3 px-3' : 'justify-center px-2',
+                            'flex min-w-0 flex-1 items-center rounded-md py-2 text-sm text-muted-foreground transition-colors hover:bg-muted',
+                            expanded ? 'gap-2 px-2' : 'justify-center px-0.5',
                         )}
                         title={expanded ? t('sidebarCollapse') : t('sidebarExpand')}
                         aria-label={expanded ? t('sidebarCollapse') : t('sidebarExpand')}
                     >
-                        {expanded ? <PanelLeftClose size={17} /> : <PanelLeftOpen size={17} />}
-                        {expanded && <span>{t('sidebarCollapse')}</span>}
+                        {expanded ? <PanelLeftClose size={17} className="shrink-0" /> : <PanelLeftOpen size={17} className="shrink-0" />}
+                        {expanded && <span className="truncate">{t('sidebarCollapseShort')}</span>}
                     </button>
                     <button
                         onClick={() => setTheme(darkMode ? 'light' : 'dark')}
                         className={cn(
-                            'flex w-full items-center rounded-md py-2 text-sm text-muted-foreground hover:bg-muted',
-                            expanded ? 'gap-3 px-3' : 'justify-center px-2',
+                            'flex min-w-0 flex-1 items-center rounded-md py-2 text-sm text-muted-foreground transition-colors hover:bg-muted',
+                            expanded ? 'gap-2 px-2' : 'justify-center px-0.5',
                         )}
-                        title={darkMode ? 'Modo claro' : 'Modo oscuro'}
-                        aria-label={darkMode ? 'Modo claro' : 'Modo oscuro'}
+                        title={darkMode ? t('themeSwitchToLight') : t('themeSwitchToDark')}
+                        aria-label={darkMode ? t('themeSwitchToLight') : t('themeSwitchToDark')}
                     >
-                        {darkMode ? <Sun size={17} /> : <Moon size={17} />}
-                        {expanded && <span>{darkMode ? 'Modo claro' : 'Modo oscuro'}</span>}
+                        {darkMode ? <Sun size={17} className="shrink-0" /> : <Moon size={17} className="shrink-0" />}
+                        {expanded && <span className="truncate">{darkMode ? t('themeLight') : t('themeDark')}</span>}
                     </button>
                 </div>
             </aside>

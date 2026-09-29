@@ -2,26 +2,26 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Concerns\ParsesStatsFilters;
 use App\Models\Activity;
 use App\Models\User;
 use App\Repositories\Contracts\ActivityRepositoryInterface;
-use DateTimeImmutable;
-use DateTimeZone;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class ExportController extends Controller
 {
+    use ParsesStatsFilters;
+
     public function __construct(private readonly ActivityRepositoryInterface $activities) {}
 
     public function show(Request $request): Response
     {
-        $from = $request->query('from');
-        $to = $request->query('to');
         $format = $request->query('format', 'csv');
 
-        $parsed = $this->parseRange($from, $to);
+        $parsed = $this->parseOptionalRange($request->query('from'), $request->query('to'));
 
         if ($parsed === null) {
             return response()->json(['error' => 'Rango de fechas no válido.'], 400);
@@ -62,6 +62,12 @@ class ExportController extends Controller
                 ]);
             }
 
+            $rows = $this->applyFilters(
+                $rows,
+                $this->csvIds($request->query('activities')),
+                $this->csvIds($request->query('categories')),
+            );
+
             $lines = ['Actividad,Categoria,Inicio,Fin,Estado,Puntos'];
 
             foreach ($rows as $activity) {
@@ -87,41 +93,24 @@ class ExportController extends Controller
     }
 
     /**
-     * @return array{0: ?DateTimeImmutable, 1: ?DateTimeImmutable}|null
+     * Aplica los filtros de actividades y categorías al CSV.
+     * null o array vacío = sin filtro (misma semántica que StatsService).
+     *
+     * @param  array<int, string>|null  $activityIds
+     * @param  array<int, string>|null  $categoryIds
+     * @return Collection<int, Activity>
      */
-    private function parseRange(mixed $from, mixed $to): ?array
+    private function applyFilters(Collection $rows, ?array $activityIds, ?array $categoryIds): Collection
     {
-        if ($from !== null && ! $this->isDateString($from)) {
-            return null;
+        if ($activityIds) {
+            $rows = $rows->whereIn('id', $activityIds);
         }
 
-        if ($to !== null && ! $this->isDateString($to)) {
-            return null;
+        if ($categoryIds) {
+            $rows = $rows->whereIn('category_id', $categoryIds);
         }
 
-        $fromDate = $from !== null ? new DateTimeImmutable($from.'T00:00:00.000Z') : null;
-        $toDate = $to !== null ? new DateTimeImmutable($to.'T23:59:59.999Z') : null;
-
-        if ($fromDate === false || $toDate === false) {
-            return null;
-        }
-
-        return [$fromDate, $toDate];
-    }
-
-    private function isDateString(mixed $value): bool
-    {
-        if (! is_string($value)) {
-            return false;
-        }
-
-        try {
-            $dt = new DateTimeImmutable($value, new DateTimeZone('UTC'));
-
-            return $dt->format('Y-m-d') === $value;
-        } catch (\Throwable) {
-            return false;
-        }
+        return $rows;
     }
 
     /**

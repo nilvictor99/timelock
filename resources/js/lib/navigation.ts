@@ -5,10 +5,9 @@ export type NavId =
     | 'suggestions'
     | 'rewards'
     | 'calendar'
-    | 'streak'
     | 'profile'
     | 'settings'
-    | 'export';
+    | 'attendance';
 
 export const navigationIds: NavId[] = [
     'home',
@@ -17,15 +16,14 @@ export const navigationIds: NavId[] = [
     'suggestions',
     'rewards',
     'calendar',
-    'streak',
     'profile',
     'settings',
-    'export',
+    'attendance',
 ];
 
 export const mobilePrimaryNavigation: NavId[] = ['home', 'activities', 'calendar', 'stats', 'profile'];
 
-export const mobileMoreNavigation: NavId[] = ['suggestions', 'rewards', 'streak', 'settings', 'export'];
+export const mobileMoreNavigation: NavId[] = ['suggestions', 'rewards', 'settings', 'attendance'];
 
 export function navigationPath(id: NavId): string {
     switch (id) {
@@ -41,14 +39,12 @@ export function navigationPath(id: NavId): string {
             return '/dashboard/rewards';
         case 'calendar':
             return '/dashboard/calendar';
-        case 'streak':
-            return '/dashboard/streak';
         case 'profile':
             return '/dashboard/profile';
         case 'settings':
             return '/dashboard/settings';
-        case 'export':
-            return '/dashboard/export';
+        case 'attendance':
+            return '/dashboard/attendance';
     }
 }
 
@@ -66,14 +62,12 @@ export function activeFromPathname(pathname: string): NavId | null {
             return 'rewards';
         case '/dashboard/calendar':
             return 'calendar';
-        case '/dashboard/streak':
-            return 'streak';
         case '/dashboard/profile':
             return 'profile';
         case '/dashboard/settings':
             return 'settings';
-        case '/dashboard/export':
-            return 'export';
+        case '/dashboard/attendance':
+            return 'attendance';
         default:
             return null;
     }
