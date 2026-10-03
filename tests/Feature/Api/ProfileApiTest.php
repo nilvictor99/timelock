@@ -132,9 +132,9 @@ it('rejects a password change when new equals current', function () {
 it('rejects a too short new password', function () {
     $this->postJson('/api/profile/password', [
         'currentPassword' => 'clave-super-segura-ok',
-        'newPassword' => 'corta',
-        'confirmPassword' => 'corta',
+        'newPassword' => 'abc',
+        'confirmPassword' => 'abc',
     ])
         ->assertStatus(400)
-        ->assertJson(['error' => 'La contraseña nueva debe tener al menos 12 caracteres.']);
+        ->assertJson(['error' => 'La contraseña nueva debe tener al menos 4 caracteres.']);
 });

@@ -30,7 +30,7 @@ class RegisterRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'min:2'],
             'email' => ['required', 'email'],
-            'password' => ['required', 'min:12', Rule::notIn(self::COMMON_COMPROMISED)],
+            'password' => ['required', 'min:4', Rule::notIn(self::COMMON_COMPROMISED)],
             'acceptTerms' => ['accepted'],
             'remember' => ['sometimes', 'boolean'],
         ];
@@ -46,8 +46,8 @@ class RegisterRequest extends FormRequest
             'name.min' => 'Introduce tu nombre.',
             'email.required' => 'Introduce un correo válido.',
             'email.email' => 'Introduce un correo válido.',
-            'password.required' => 'La contraseña debe tener al menos 12 caracteres.',
-            'password.min' => 'La contraseña debe tener al menos 12 caracteres.',
+            'password.required' => 'La contraseña debe tener al menos 4 caracteres.',
+            'password.min' => 'La contraseña debe tener al menos 4 caracteres.',
             'password.not_in' => 'Elige una contraseña menos común.',
             'acceptTerms.accepted' => 'Debes aceptar los términos.',
         ];

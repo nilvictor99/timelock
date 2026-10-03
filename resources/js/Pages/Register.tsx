@@ -56,19 +56,19 @@ export default function Register() {
                                 autoComplete="email"
                             />
                         </label>
-                        <label className="block text-sm font-medium">
-                            {t('register.password')}
-                            <Input
-                                className="mt-2"
-                                type="password"
-                                value={data.password}
-                                onChange={(event) => setData('password', event.target.value)}
-                                required
-                                minLength={12}
-                                autoComplete="new-password"
-                            />
-                            <span className="mt-1 block text-xs text-muted-foreground">{t('login.passwordHint')}</span>
-                        </label>
+                         <label className="block text-sm font-medium">
+                             {t('register.password')}
+                             <Input
+                                 className="mt-2"
+                                 type="password"
+                                 value={data.password}
+                                 onChange={(event) => setData('password', event.target.value)}
+                                 required
+                                 minLength={4}
+                                 autoComplete="new-password"
+                             />
+                             <span className="mt-1 block text-xs text-muted-foreground">{t('login.passwordHint')}</span>
+                         </label>
                         <label className="flex items-start gap-2 text-sm">
                             <Checkbox
                                 checked={data.acceptTerms}

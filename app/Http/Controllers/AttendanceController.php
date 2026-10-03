@@ -29,6 +29,8 @@ class AttendanceController extends Controller
                 'started_at' => $a->started_at,
                 'ended_at' => $a->ended_at,
                 'duration_minutes' => $a->duration_minutes,
+                'location' => $a->location,
+                'notes' => $a->notes,
             ]),
             'summary' => $summary,
         ]);
@@ -37,8 +39,22 @@ class AttendanceController extends Controller
     public function toggle(ToggleRequest $request)
     {
         $user = $request->attributes->get('auth_user');
-        $type = $request->validated()['type'];
-        $attendance = $this->service->toggle($user->id, $type);
+        $validated = $request->validated();
+        $type = $validated['type'];
+        $location = null;
+        if (isset($validated['location'])) {
+            $location = $validated['location'];
+        } else {
+            $parts = array_filter([
+                'lat' => $validated['lat'] ?? null,
+                'lng' => $validated['lng'] ?? null,
+                'address' => $validated['address'] ?? null,
+            ]);
+            if ($parts) {
+                $location = json_encode($parts);
+            }
+        }
+        $attendance = $this->service->toggle($user->id, $type, $location);
 
         return response()->json(['attendance' => $attendance]);
     }

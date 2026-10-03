@@ -12,7 +12,7 @@ class AttendanceService
 {
     public function __construct(private readonly AttendanceRepositoryInterface $repo) {}
 
-    public function toggle(string $userId, string $type): Attendance
+    public function toggle(string $userId, string $type, ?array $location = null): Attendance
     {
         $date = Carbon::now()->format('Y-m-d');
         $open = $this->repo->findOpenByUserAndType($userId, $type, $date);
@@ -28,11 +28,17 @@ class AttendanceService
             return $open;
         }
 
-        return $this->repo->create([
+        $data = [
             'user_id' => $userId,
             'type' => $type,
             'started_at' => Carbon::now(),
-        ]);
+        ];
+
+        if ($location) {
+            $data['location'] = $location;
+        }
+
+        return $this->repo->create($data);
     }
 
     public function listByRange(string $userId, ?DateTimeInterface $from, ?DateTimeInterface $to): Collection

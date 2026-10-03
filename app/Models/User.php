@@ -37,6 +37,8 @@ class User extends Model
 
     protected $keyType = 'string';
 
+    protected $with = ['profile', 'preferences', 'settings', 'notifications', 'aiSettings', 'pause'];
+
     /**
      * @return array<string, string>
      */
@@ -96,5 +98,35 @@ class User extends Model
     public function suggestions(): HasMany
     {
         return $this->hasMany(Suggestion::class);
+    }
+
+    public function profile()
+    {
+        return $this->hasOne(UserProfile::class);
+    }
+
+    public function preferences()
+    {
+        return $this->hasOne(UserPreference::class);
+    }
+
+    public function settings()
+    {
+        return $this->hasOne(UserSetting::class);
+    }
+
+    public function notifications()
+    {
+        return $this->hasOne(UserNotification::class);
+    }
+
+    public function aiSettings()
+    {
+        return $this->hasOne(UserAiSetting::class);
+    }
+
+    public function pause()
+    {
+        return $this->hasOne(UserPause::class);
     }
 }

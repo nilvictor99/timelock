@@ -11,7 +11,7 @@ class ProfilePasswordRequest extends ApiFormRequest
     {
         return [
             'currentPassword' => ['required', 'string'],
-            'newPassword' => ['required', 'string', 'min:12'],
+            'newPassword' => ['required', 'string', 'min:4'],
             'confirmPassword' => ['required', 'string', 'same:newPassword'],
         ];
     }
@@ -24,7 +24,7 @@ class ProfilePasswordRequest extends ApiFormRequest
         return [
             'currentPassword.required' => 'Introduce tu contraseña actual.',
             'newPassword.required' => 'La contraseña nueva es obligatoria.',
-            'newPassword.min' => 'La contraseña nueva debe tener al menos 12 caracteres.',
+            'newPassword.min' => 'La contraseña nueva debe tener al menos 4 caracteres.',
             'confirmPassword.required' => 'Confirma la contraseña nueva.',
             'confirmPassword.same' => 'Las contraseñas nuevas no coinciden.',
         ];

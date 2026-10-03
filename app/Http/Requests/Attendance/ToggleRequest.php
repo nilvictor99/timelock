@@ -15,6 +15,10 @@ class ToggleRequest extends FormRequest
     {
         return [
             'type' => 'required|string|in:WORK,BREAK',
+            'location' => 'nullable|string|max:500',
+            'lat' => 'nullable|numeric|between:-90,90',
+            'lng' => 'nullable|numeric|between:-180,180',
+            'address' => 'nullable|string|max:255',
         ];
     }
 }

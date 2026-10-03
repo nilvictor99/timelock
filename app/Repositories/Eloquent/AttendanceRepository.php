@@ -19,8 +19,24 @@ class AttendanceRepository implements AttendanceRepositoryInterface
     public function findByUserRange(string $userId, ?DateTimeInterface $from, ?DateTimeInterface $to): Collection
     {
         $q = $this->model->where('user_id', $userId);
-        if ($from) $q->where('started_at', '>=', $from);
-        if ($to) $q->where('started_at', '<=', $to);
+        if ($from && $to) {
+            $q->where(function ($query) use ($from, $to) {
+                $query->whereBetween('started_at', [$from, $to])
+                    ->orWhereBetween('ended_at', [$from, $to])
+                    ->orWhere(function ($q2) use ($from, $to) {
+                        $q2->where('started_at', '<=', $from)
+                            ->where(function ($q3) use ($to) {
+                                $q3->whereNull('ended_at')
+                                    ->orWhere('ended_at', '>=', $to);
+                            });
+                    });
+            });
+        } elseif ($from) {
+            $q->where('started_at', '>=', $from);
+        } elseif ($to) {
+            $q->where('started_at', '<=', $to);
+        }
+
         return $q->latest('started_at')->get();
     }
 
@@ -41,8 +57,11 @@ class AttendanceRepository implements AttendanceRepositoryInterface
     public function update(string $id, string $userId, array $data): bool
     {
         $attendance = $this->model->where('id', $id)->where('user_id', $userId)->first();
-        if (!$attendance) return false;
+        if (! $attendance) {
+            return false;
+        }
         $attendance->update($data);
+
         return true;
     }
 }
