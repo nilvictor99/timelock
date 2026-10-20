@@ -117,11 +117,11 @@ export default function AttendancePage(){
                 <>
                   <div className="rounded-lg border p-4">
                     <div className="text-xs text-muted-foreground">{t('attendance.history.summary.work')}</div>
-                    <div className="mt-1 text-2xl font-semibold">{summary.work_minutes}<span className="text-sm font-normal text-muted-foreground">m</span></div>
+                    <div className="mt-1 text-2xl font-semibold">{summary.work_minutes}<span className="text-sm font-normal text-muted-foreground">{t('attendance.unit.minutes')}</span></div>
                   </div>
                   <div className="rounded-lg border p-4">
                     <div className="text-xs text-muted-foreground">{t('attendance.history.summary.break')}</div>
-                    <div className="mt-1 text-2xl font-semibold">{summary.break_minutes}<span className="text-sm font-normal text-muted-foreground">m</span></div>
+                    <div className="mt-1 text-2xl font-semibold">{summary.break_minutes}<span className="text-sm font-normal text-muted-foreground">{t('attendance.unit.minutes')}</span></div>
                   </div>
                   <div className="rounded-lg border p-4">
                     <div className="text-xs text-muted-foreground">{t('attendance.history.summary.sessions')}</div>
@@ -154,7 +154,7 @@ export default function AttendancePage(){
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                           <span>{t('attendance.history.start')}: {fmt(i.started_at)}</span>
                           {i.ended_at && <span>{t('attendance.history.end')}: {fmt(i.ended_at)}</span>}
-                          <span>{t('attendance.history.duration')}: {i.duration_minutes ?? '—'}m</span>
+                          <span>{t('attendance.history.duration')}: {i.duration_minutes ?? '—'}{t('attendance.unit.minutes')}</span>
                         </div>
                         <div className="text-xs">
                           <span className="text-muted-foreground">{t('attendance.history.location')}:</span>{' '}
@@ -166,7 +166,7 @@ export default function AttendancePage(){
                         </div>
                       </div>
                       <div className="text-right tabular-nums text-sm font-medium self-start">
-                        {i.duration_minutes ?? '—'}m
+                        {i.duration_minutes ?? '—'}{t('attendance.unit.minutes')}
                       </div>
                     </li>
                   ))}

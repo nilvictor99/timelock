@@ -87,4 +87,24 @@ class ActivityRepository implements ActivityRepositoryInterface
     {
         return (bool) Activity::whereKey($id)->where('user_id', $userId)->delete();
     }
+
+    public function overlaps(string $userId, string $date, DateTimeInterface $start, DateTimeInterface $end, ?string $excludeId = null): bool
+    {
+        $query = Activity::where('user_id', $userId)
+            ->whereDate('date', $date)
+            ->where(function ($q) use ($start, $end) {
+                $q->whereBetween('start_at', [$start, $end])
+                  ->orWhereBetween('end_at', [$start, $end])
+                  ->orWhere(function ($q2) use ($start, $end) {
+                      $q2->where('start_at', '<=', $start)
+                         ->where('end_at', '>=', $end);
+                  });
+            });
+
+        if ($excludeId !== null) {
+            $query->whereKeyNot($excludeId);
+        }
+
+        return $query->exists();
+    }
 }

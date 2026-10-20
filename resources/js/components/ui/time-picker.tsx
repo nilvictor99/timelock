@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 
 const HOURS = Array.from({ length: 24 }, (_, index) => index);
-const MINUTES = Array.from({ length: 12 }, (_, index) => index * 5);
+const MINUTES = Array.from({ length: 60 }, (_, index) => index);
 
 function splitValue(value: string): { hour: number; minute: number } | null {
     const match = /^(\d{2}):(\d{2})$/.exec(value);
@@ -20,7 +20,7 @@ function pad(value: number): string {
 
 function pickerCellClass(selected: boolean): string {
     return cn(
-        'flex h-8 items-center justify-center rounded-md text-sm transition-colors',
+        'flex min-w-[3rem] h-7 items-center justify-center rounded-md text-xs transition-colors',
         selected ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground',
     );
 }
@@ -33,6 +33,7 @@ export function TimePicker({
     disabled,
     className,
     id,
+    isSlotDisabled,
 }: {
     value: string;
     onChange: (value: string) => void;
@@ -41,6 +42,7 @@ export function TimePicker({
     disabled?: boolean;
     className?: string;
     id?: string;
+    isSlotDisabled?: (hour: number, minute: number) => boolean;
 }) {
     const { t } = useI18n();
     const [open, setOpen] = React.useState(false);
@@ -79,36 +81,61 @@ export function TimePicker({
                 </span>
                 <ClockIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-64 p-3">
-                <div className="grid grid-cols-2 gap-3">
+            <PopoverContent align="start" className="w-72 p-2 max-h-[80vh] overflow-auto">
+                <div className="mb-2">
+                    <label className="mb-1 block text-xs text-muted-foreground">{t('timePickerManual')}</label>
+                    <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-2][0-9]:[0-5][0-9]"
+                        placeholder={t('timePickerPlaceholder')}
+                        value={value}
+                        onChange={(e) => {
+                            const v = e.target.value;
+                            if (/^\d{2}:\d{2}$/.test(v)) {
+                                onChange(v);
+                            }
+                        }}
+                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <p className="mb-1.5 text-xs text-muted-foreground">{t('timePickerHours')}</p>
-                        <div className="grid max-h-44 grid-cols-3 gap-1 overflow-auto pr-1">
-                            {HOURS.map((hour) => (
+                        <p className="mb-1 text-xs text-muted-foreground">{t('timePickerHours')}</p>
+                        <div className="flex flex-col gap-0.5 max-h-40 overflow-y-auto pr-1 py-0.5"> 
+                            {HOURS.map((hour) => {
+                                const disabledSlot = isSlotDisabled?.(hour, current?.minute ?? 0);
+                                return (
                                 <button
                                     key={hour}
                                     type="button"
-                                    className={pickerCellClass(current?.hour === hour)}
-                                    onClick={() => select(hour, current?.minute ?? 0)}
+                                    disabled={disabledSlot}
+                                    className={cn(pickerCellClass(current?.hour === hour), disabledSlot && 'opacity-40 cursor-not-allowed')}
+                                    onClick={() => !disabledSlot && select(hour, current?.minute ?? 0)}
                                 >
                                     {pad(hour)}
                                 </button>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                     <div>
-                        <p className="mb-1.5 text-xs text-muted-foreground">{t('timePickerMinutes')}</p>
-                        <div className="grid max-h-44 grid-cols-3 gap-1 overflow-auto pr-1">
-                            {MINUTES.map((minute) => (
+                        <p className="mb-1 text-xs text-muted-foreground">{t('timePickerMinutes')}</p>
+                        <div className="flex flex-col gap-0.5 max-h-40 overflow-y-auto pr-1 py-0.5">
+                            {MINUTES.map((minute) => {
+                                const disabledSlot = isSlotDisabled?.(current?.hour ?? 0, minute);
+                                return (
                                 <button
                                     key={minute}
                                     type="button"
-                                    className={pickerCellClass(current?.minute === minute)}
-                                    onClick={() => select(current?.hour ?? 0, minute)}
+                                    disabled={disabledSlot}
+                                    className={cn(pickerCellClass(current?.minute === minute), disabledSlot && 'opacity-40 cursor-not-allowed')}
+                                    onClick={() => !disabledSlot && select(current?.hour ?? 0, minute)}
                                 >
                                     {pad(minute)}
                                 </button>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </div>

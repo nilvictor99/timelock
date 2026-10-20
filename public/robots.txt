@@ -1,2 +1,12 @@
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /profile/
+Disallow: /onboarding/
+Disallow: /login
+Disallow: /register
+Disallow: /logout
+
+Sitemap: https://tudominio.com/sitemap.xml
+

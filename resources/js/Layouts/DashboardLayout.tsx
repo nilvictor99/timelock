@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
+import { Toaster } from 'sonner';
 import {
     Activity as ActivityIcon,
     BarChart3,
@@ -225,11 +226,11 @@ export default function DashboardLayout({
 
             <main
                 className={cn(
-                    'transition-[padding] duration-300 lg:pl-16',
+                    'overflow-x-hidden transition-[padding] duration-300 lg:pl-16',
                     expanded ? 'lg:pl-64' : 'lg:pl-16',
                 )}
             >
-                <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between gap-3 border-b border-border bg-background/95 px-4 py-2 backdrop-blur md:px-8">
+                <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-3 border-b border-border bg-background/95 px-4 py-2 backdrop-blur md:px-8">
                     <div className="flex min-w-0 items-center gap-3">
                         <span className="hidden lg:block" aria-hidden="true" />
                         <div className="min-w-0">
@@ -322,6 +323,7 @@ export default function DashboardLayout({
                     <span>{t('statsMore')}</span>
                 </button>
             </nav>
+            <Toaster richColors position="top-right" expand={false} />
         </div>
     );
 }

@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Camera, Check, Loader2, Mail, RotateCcw, X, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -166,6 +167,7 @@ export default function Profile() {
     const [emailModalOpen, setEmailModalOpen] = React.useState(false);
     const [emailPassword, setEmailPassword] = React.useState('');
     const [emailSaving, setEmailSaving] = React.useState(false);
+    const [avatarUploading, setAvatarUploading] = React.useState(false);
     const [toast, setToast] = React.useState('');
 
     const load = async () => {
@@ -282,18 +284,21 @@ export default function Profile() {
 
     async function upload(file?: File) {
         if (!file) return;
-        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
-            setMessage(t('invalidFile'));
+        if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+            toast.error(t('invalidFile'));
             return;
         }
+        setAvatarUploading(true);
         const body = new FormData();
         body.append('file', file);
         try {
             await apiForm('/api/profile/avatar', body);
             await load();
-            setMessage(t('saved'));
+            toast.success(t('saved'));
         } catch (cause) {
-            setMessage(cause instanceof Error ? cause.message : t('invalidFile'));
+            toast.error(cause instanceof Error ? cause.message : t('invalidFile'));
+        } finally {
+            setAvatarUploading(false);
         }
     }
 
@@ -315,20 +320,29 @@ export default function Profile() {
                             </CardHeader>
                             <CardContent className="space-y-5">
                                 <div className="flex flex-wrap items-center gap-4">
-                                    <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-full bg-foreground text-2xl font-bold text-background">
+                                    <div className="relative grid h-24 w-24 place-items-center overflow-hidden rounded-full bg-foreground text-2xl font-bold text-background">
                                         {user.avatarUrl ? (
                                             <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
                                         ) : (
                                             initials
                                         )}
+                                        {avatarUploading && (
+                                            <div className="absolute inset-0 grid place-items-center bg-black/50">
+                                                <Loader2 className="animate-spin text-white" size={20} />
+                                            </div>
+                                        )}
                                     </div>
-                                    <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-muted">
-                                        <Camera size={16} /> {t('uploadAvatar')}
+                                    <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50">
+                                        <Camera size={16} />
+                                        <span>
+                                            {avatarUploading ? t('uploading') : t('uploadAvatar')}
+                                        </span>
                                         <input
                                             className="hidden"
                                             type="file"
-                                            accept="image/jpeg,image/png,image/webp"
+                                            accept="image/jpeg,image/jpg,image/png,image/webp"
                                             onChange={(event) => upload(event.target.files?.[0])}
+                                            disabled={avatarUploading}
                                         />
                                     </label>
                                 </div>
@@ -686,7 +700,7 @@ export default function Profile() {
                             onChange={(event) =>
                                 setField(
                                     'mainGoals',
-                                    event.target.value.split('\n').map((goal) => goal.trim()).filter(Boolean).slice(0, 5),
+                                    event.target.value.split('\n').map((goal) => goal).filter((g) => g.length > 0).slice(0, 5),
                                 )
                             }
                         />

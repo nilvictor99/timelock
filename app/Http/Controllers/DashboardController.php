@@ -96,6 +96,25 @@ class DashboardController extends Controller
             $data['end_at'] = new DateTimeImmutable($body['endAt']);
         }
 
+        // Validate time changes
+        if (isset($data['start_at']) || isset($data['end_at'])) {
+            $start = $data['start_at'] ?? $existing->start_at;
+            $end = $data['end_at'] ?? $existing->end_at;
+            $date = $start->format('Y-m-d');
+
+            if ($end <= $start) {
+                return response()->json(['error' => 'La hora de fin debe ser posterior al inicio.'], 422);
+            }
+
+            if ($existing->is_free === false && $start < now()) {
+                return response()->json(['error' => 'No se pueden mover actividades al pasado.'], 422);
+            }
+
+            if ($this->activities->overlaps($user->id, $date, $start, $end, $existing->id)) {
+                return response()->json(['error' => 'La hora seleccionada se solapa con otra actividad existente.'], 422);
+            }
+        }
+
         try {
             $this->activities->update($existing->id, $user->id, $data);
 
@@ -195,6 +214,17 @@ class DashboardController extends Controller
             return response()->json(['error' => 'Título y horario válido son obligatorios.'], 400);
         }
 
+        $isFree = $user->operation_mode === 'FREE' || (bool) ($body['isFree'] ?? false);
+
+        if (! $isFree && $start < now()) {
+            return response()->json(['error' => 'No se pueden crear actividades en el pasado.'], 422);
+        }
+
+        $date = $start->format('Y-m-d');
+        if ($this->activities->overlaps($user->id, $date, $start, $end)) {
+            return response()->json(['error' => 'La hora seleccionada se solapa con otra actividad existente.'], 422);
+        }
+
         $category = ! empty($body['categoryId'])
             ? $this->categories->findByIdAndUser($body['categoryId'], $user->id)
             : null;
@@ -202,8 +232,6 @@ class DashboardController extends Controller
         $points = $category
             ? max(1, (int) round(((int) ($end->getTimestamp() - $start->getTimestamp())) / 3600 * $category->points_per_hour))
             : 0;
-
-        $isFree = $user->operation_mode === 'FREE' || (bool) ($body['isFree'] ?? false);
 
         $activity = $this->activities->create([
             'user_id' => $user->id,

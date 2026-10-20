@@ -67,8 +67,8 @@ export default function Onboarding() {
                                     value={language}
                                     onChange={(event) => setLanguage(event.target.value as 'es' | 'en')}
                                 >
-                                    <option value="es">Español</option>
-                                    <option value="en">English</option>
+                                    <option value="es">{t('spanish')}</option>
+                                    <option value="en">{t('english')}</option>
                                 </select>
                             </label>
                         </div>

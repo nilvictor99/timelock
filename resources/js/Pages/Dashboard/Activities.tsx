@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Check, Plus, Trash2 } from 'lucide-react';
+import { Check, Edit2, Plus, Trash2 } from 'lucide-react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ export default function Activities() {
     const [error, setError] = React.useState<string | null>(null);
     const [date, setDate] = React.useState(toDateKey());
     const [showForm, setShowForm] = React.useState(false);
+    const [editingActivity, setEditingActivity] = React.useState<Activity | null>(null);
 
     const load = React.useCallback(() => {
         apiGet<Bootstrap>('/api/bootstrap')
@@ -114,6 +115,9 @@ export default function Activities() {
                                                 <Check size={15} /> {t('actDone')}
                                             </Button>
                                         )}
+                                        <Button variant="ghost" size="sm" onClick={() => setEditingActivity(activity)} aria-label={t('actEdit')}>
+                                            <Edit2 size={15} />
+                                        </Button>
                                         <Button variant="ghost" size="sm" onClick={() => deleteActivity(activity.id)} aria-label={t('actDelete')}>
                                             <Trash2 size={15} className="text-danger" />
                                         </Button>
@@ -139,14 +143,20 @@ export default function Activities() {
                 </div>
             </div>
 
-            {showForm && (
+            {(showForm || editingActivity) && (
                 <ActivityForm
                     categories={categories}
                     defaultDate={date}
                     mode={user.operationMode}
-                    onClose={() => setShowForm(false)}
+                    editActivity={editingActivity ?? undefined}
+                    existingActivities={dayActivities}
+                    onClose={() => {
+                        setShowForm(false);
+                        setEditingActivity(null);
+                    }}
                     onCreated={() => {
                         setShowForm(false);
+                        setEditingActivity(null);
                         load();
                     }}
                 />

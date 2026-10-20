@@ -27,7 +27,7 @@ class ProfileController extends Controller
             $file = $request->file('file');
 
             if (! $file instanceof UploadedFile
-                || ! in_array($file->getMimeType(), ['image/jpeg', 'image/png', 'image/webp'], true)
+                || ! in_array($file->getMimeType(), ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'], true)
                 || $file->getSize() > 5 * 1024 * 1024
                 || $file->getSize() <= 0) {
                 return response()->json(['error' => 'La imagen debe ser JPG, PNG o WebP y pesar hasta 5 MB.'], 400);
@@ -40,12 +40,13 @@ class ProfileController extends Controller
             $extension = match ($file->getMimeType()) {
                 'image/png' => 'png',
                 'image/webp' => 'webp',
+                'image/jpg' => 'jpg',
                 default => 'jpg',
             };
 
             $filename = $user->id.'-'.time().'-'.bin2hex(random_bytes(6)).'.'.$extension;
 
-            $dir = public_path('uploads');
+            $dir = storage_path('app/public/uploads');
 
             if (! is_dir($dir) && ! mkdir($dir, 0775, true) && ! is_dir($dir)) {
                 throw new \RuntimeException('No se pudo crear el directorio de subidas.');
@@ -53,7 +54,7 @@ class ProfileController extends Controller
 
             $file->move($dir, $filename);
 
-            $avatarUrl = '/uploads/'.$filename;
+            $avatarUrl = '/storage/uploads/'.$filename;
 
             if (! $this->users->update($user->id, ['avatar_url' => $avatarUrl])) {
                 throw new \RuntimeException('No se pudo guardar el avatar.');

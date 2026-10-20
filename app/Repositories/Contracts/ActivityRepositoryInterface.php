@@ -25,4 +25,6 @@ interface ActivityRepositoryInterface
     public function updateTimes(string $id, string $userId, DateTimeInterface $date, DateTimeInterface $startAt, DateTimeInterface $endAt): bool;
 
     public function deleteByIdAndUser(string $id, string $userId): bool;
+
+    public function overlaps(string $userId, string $date, DateTimeInterface $start, DateTimeInterface $end, ?string $excludeId = null): bool;
 }

@@ -21,7 +21,62 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-MODE="${1:-bash}"
+# Verificar e instalar dependencias con Composer si no existen
+if [[ ! -d "vendor" ]]; then
+    echo "==> vendor/ no encontrado. Ejecutando composer install..."
+    if command -v composer >/dev/null 2>&1; then
+        composer install --no-interaction --prefer-dist
+    else
+        echo "ERROR: composer no está instalado en el host." >&2
+        exit 1
+    fi
+fi
+
+# Verificar .env
+if [[ ! -f ".env" ]]; then
+    if [[ -f ".env.example" ]]; then
+        echo "==> .env no encontrado. Copiando desde .env.example..."
+        cp .env.example .env
+        echo "==> .env creado."
+    else
+        echo "ERROR: .env.example no encontrado." >&2
+        exit 1
+    fi
+fi
+
+# Generar APP_KEY si está vacío
+if grep -q '^APP_KEY=$' .env || ! grep -q '^APP_KEY=base64:' .env; then
+    if command -v php >/dev/null 2>&1 && [[ -f "artisan" ]]; then
+        echo "==> Generando APP_KEY..."
+        php artisan key:generate --force >/dev/null 2>&1 || true
+    fi
+fi
+
+# Verificar dependencias NPM
+if [[ ! -d "node_modules" ]]; then
+    echo "==> node_modules no encontrado. Ejecutando npm install..."
+    if command -v npm >/dev/null 2>&1; then
+        npm install
+    else
+        echo "ERROR: npm no está instalado en el host." >&2
+        exit 1
+    fi
+fi
+
+MODE="${1:-}"
+if [[ -z "${MODE}" ]]; then
+    echo "Selecciona modo de ejecución:"
+    echo "  1) bash  - abrir shell en el contenedor"
+    echo "  2) dev   - levantar npm run dev dentro del contenedor"
+    echo "  3) build - ejecutar npm run build dentro del contenedor"
+    read -rp "Opción [1-3]: " opt
+    case "${opt}" in
+        1) MODE="bash" ;;
+        2) MODE="dev" ;;
+        3) MODE="build" ;;
+        *) MODE="bash" ;;
+    esac
+fi
 SERVICE="laravel.test"
 CONTAINER_WORKDIR="/var/www/html"
 

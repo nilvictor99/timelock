@@ -123,7 +123,7 @@ export default function Index() {
                 />
                 <Metric
                     title={t('dashboard.streak')}
-                    value={`${user.currentStreak ?? 0} días`}
+                    value={`${user.currentStreak ?? 0} ${t('attendance.unit.days')}`}
                     detail={t('homeStreakBest').replace('{best}', String(user.bestStreak ?? 0))}
                     icon={<Flame className="text-warning" />}
                 />
